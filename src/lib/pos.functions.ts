@@ -458,13 +458,17 @@ export const getCashierHistorySecure = createServerFn({ method: "POST" })
     // Public cashier dashboard intentionally exposes only today's aggregate totals,
     // never individual orders, payment methods, or customer/order details.
     const db = await admin();
-    const date = new Intl.DateTimeFormat("en-CA", {
+    const dateParts = new Intl.DateTimeFormat("en-US", {
       timeZone: "Asia/Jakarta",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
-    }).format(new Date());
-    const [year, month, day] = date.split("-").map(Number);
+    }).formatToParts(new Date());
+    const part = (type: string) => dateParts.find((item) => item.type === type)?.value ?? "";
+    const year = Number(part("year"));
+    const month = Number(part("month"));
+    const day = Number(part("day"));
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
     const nextDate = `${nextDay.getUTCFullYear()}-${String(nextDay.getUTCMonth() + 1).padStart(2, "0")}-${String(nextDay.getUTCDate()).padStart(2, "0")}`;
     const start = `${date}T00:00:00+07:00`;
