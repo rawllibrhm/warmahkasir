@@ -453,39 +453,26 @@ export const submitCustomerFeedback = createServerFn({ method: "POST" })
 
 
 export const getCashierHistorySecure = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({}).parse(d))
-  .handler(async () => {
-    // Public cashier dashboard intentionally exposes only today's aggregate totals,
-    // never individual orders, payment methods, or customer/order details.
+  .inputValidator((d) => z.object({
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  }).refine((d) => d.from <= d.to, { message: "Rentang tanggal tidak valid" }).parse(d))
+  .handler(async ({ data }) => {
+    // Batasi rekap pada transaksi terkonfirmasi di periode yang dipilih.
     const db = await admin();
-    const dateParts = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Jakarta",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(new Date());
-    const part = (type: string) => dateParts.find((item) => item.type === type)?.value ?? "";
-    const year = Number(part("year"));
-    const month = Number(part("month"));
-    const day = Number(part("day"));
-    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
-    const nextDate = `${nextDay.getUTCFullYear()}-${String(nextDay.getUTCMonth() + 1).padStart(2, "0")}-${String(nextDay.getUTCDate()).padStart(2, "0")}`;
-    const start = `${date}T00:00:00+07:00`;
-    const end = `${nextDate}T00:00:00+07:00`;
+    const start = new Date(data.from + "T00:00:00+07:00").toISOString();
+    const endDate = new Date(data.to + "T00:00:00+07:00");
+    endDate.setUTCDate(endDate.getUTCDate() + 1);
+    const end = endDate.toISOString();
     const { data: orders, error } = await db.from("orders")
-      .select("id,total")
+      .select("id,order_no,source,table_no,payment_method,total,created_at,confirmed_at,order_items(name,price,qty)")
       .eq("status", "dikonfirmasi")
       .gte("confirmed_at", start)
       .lt("confirmed_at", end)
+      .order("confirmed_at", { ascending: false })
       .limit(5000);
-    if (error) throw new Error("Gagal memuat ringkasan penjualan hari ini.");
-    const rows = orders ?? [];
-    return {
-      date,
-      transactions: rows.length,
-      omzet: rows.reduce((sum, order) => sum + Number(order.total || 0), 0),
-    };
+    if (error) throw new Error("Gagal memuat rekap penjualan untuk tanggal yang dipilih.");
+    return orders ?? [];
   });
 
 export const setCashierWhatsappNumber = createServerFn({ method: "POST" })
