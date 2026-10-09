@@ -3,10 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins } from "lucide-react";
+import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins, Pencil, Plus, ShieldCheck, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getReport, resetRevenue, listProductsAll, upsertProduct } from "@/lib/pos.functions";
+import { getReport, resetRevenue, listProductsAll, upsertProduct, deleteProduct, listPosTables, addPosTable, deletePosTable, getPosSettings, setCashierAddProductEnabled, getAdminPermissions } from "@/lib/pos.functions";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ const monthStart = () => { const d = new Date(); d.setDate(1); return d.toISOStr
 function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { data: permissions } = useQuery({ queryKey: ["admin-permissions"], queryFn: () => useServerFn(getAdminPermissions)() });
   async function logout() {
     await qc.cancelQueries(); qc.clear();
     await supabase.auth.signOut();
@@ -46,10 +47,11 @@ function AdminPage() {
         <Button variant="outline" size="sm" className="rounded-xl" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
       </header>
       <Tabs defaultValue="laba" className="dashboard-content px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="h-11 w-fit rounded-xl bg-secondary p-1"><TabsTrigger className="rounded-lg px-4" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="produk">Produk</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="qr">QR Meja</TabsTrigger></TabsList></div>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="h-11 w-fit rounded-xl bg-secondary p-1"><TabsTrigger className="rounded-lg px-4" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="produk">Produk</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="qr">Meja & QR</TabsTrigger>{permissions?.isSuperAdmin && <TabsTrigger className="rounded-lg px-4" value="superadmin">Super Admin</TabsTrigger>}</TabsList></div>
         <TabsContent value="laba"><Report /></TabsContent>
         <TabsContent value="produk"><Products /></TabsContent>
         <TabsContent value="qr"><TableQr /></TabsContent>
+        {permissions?.isSuperAdmin && <TabsContent value="superadmin"><SuperAdminPanel /></TabsContent>}
       </Tabs>
     </div>
   );
@@ -145,15 +147,30 @@ function Products() {
   const qc = useQueryClient();
   const { data: products = [] } = useQuery({ queryKey: ["products-all"], queryFn: () => fn() });
   const [f, setF] = useState(empty);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const remove = useServerFn(deleteProduct);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await save({ data: { name: f.name, barcode: f.barcode, category: f.category, price: +f.price, cost: +f.cost, stock: +f.stock, active: true } });
-      setF(empty); toast.success("Produk disimpan");
+      await save({ data: { ...(editId ? { id: editId } : {}), name: f.name, barcode: f.barcode, category: f.category, price: +f.price, cost: +f.cost, stock: +f.stock, active: true } });
+      setF(empty); setEditId(null); toast.success(editId ? "Perubahan produk disimpan" : "Produk disimpan");
       qc.invalidateQueries({ queryKey: ["products-all"] });
     } catch (e) { toast.error((e as Error).message); }
   }
+  async function edit(p: (typeof products)[number]) {
+    setEditId(p.id);
+    setF({ name: p.name, barcode: p.barcode ?? "", category: p.category, price: String(p.price), cost: String(p.cost), stock: String(p.stock) });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function removeProduct(id: string, name: string) {
+    if (!window.confirm(`Hapus menu "${name}"? Menu akan disembunyikan dari pelanggan, riwayat transaksi tetap aman.`)) return;
+    try { await remove({ data: { id } }); toast.success("Menu dihapus"); qc.invalidateQueries({ queryKey: ["products-all"] }); }
+    catch (e) { toast.error((e as Error).message); }
+  }
+
   async function toggle(p: (typeof products)[number]) {
     await save({ data: { id: p.id, name: p.name, barcode: p.barcode ?? "", category: p.category, price: p.price, cost: p.cost, stock: p.stock, active: !p.active } });
     qc.invalidateQueries({ queryKey: ["products-all"] });
@@ -168,15 +185,17 @@ function Products() {
         <Input placeholder="Harga jual" type="number" required value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
         <Input placeholder="Modal" type="number" required value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} />
         <Input placeholder="Stok" type="number" required value={f.stock} onChange={(e) => setF({ ...f, stock: e.target.value })} />
-        <Button>Tambah produk</Button>
+        <Button>{editId ? "Simpan perubahan" : "Tambah produk"}</Button>
+        {editId && <Button type="button" variant="outline" onClick={() => { setF(empty); setEditId(null); }}>Batal edit</Button>}
       </form>
+      <div className="flex items-center gap-2 rounded-xl border bg-card p-3"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Cari menu berdasarkan nama, kategori, atau barcode…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
       <div className="overflow-x-auto rounded-xl border bg-card">
         <table className="w-full text-sm">
           <thead className="bg-secondary text-left"><tr><th className="p-3">Nama</th><th>Kategori</th><th>Harga</th><th>Modal</th><th>Stok</th><th /></tr></thead>
-          <tbody>{products.map((p) => (
+          <tbody>{products.filter((p) => [p.name, p.category, p.barcode ?? ""].some((v) => v.toLowerCase().includes(search.toLowerCase()))).map((p) => (
             <tr key={p.id} className={`border-t ${p.active ? "" : "opacity-50"}`}>
               <td className="p-3">{p.name}</td><td>{p.category}</td><td>{rp(p.price)}</td><td>{rp(p.cost)}</td><td>{p.stock}</td>
-              <td className="pr-3 text-right"><Button size="sm" variant="outline" onClick={() => toggle(p)}>{p.active ? "Sembunyikan" : "Tampilkan"}</Button></td>
+              <td className="pr-3 text-right"><div className="flex justify-end gap-1"><Button size="sm" variant="outline" onClick={() => edit(p)}><Pencil className="mr-1 h-3 w-3" />Edit</Button><Button size="sm" variant="outline" onClick={() => toggle(p)}>{p.active ? "Sembunyikan" : "Tampilkan"}</Button><Button size="sm" variant="destructive" disabled={!p.active} onClick={() => removeProduct(p.id, p.name)}><Trash2 className="mr-1 h-3 w-3" />Hapus</Button></div></td>
             </tr>
           ))}</tbody>
         </table>
@@ -186,22 +205,86 @@ function Products() {
 }
 
 function TableQr() {
-  const [n, setN] = useState(10);
+  const qc = useQueryClient();
+  const fetchTables = useServerFn(listPosTables);
+  const addTable = useServerFn(addPosTable);
+  const removeTable = useServerFn(deletePosTable);
+  const { data: tables = [], isLoading } = useQuery({ queryKey: ["pos-tables"], queryFn: () => fetchTables() });
+  const [tableNo, setTableNo] = useState("");
+
+  async function createTable(e: React.FormEvent) {
+    e.preventDefault();
+    const value = tableNo.trim();
+    if (!value) return;
+    try {
+      await addTable({ data: { table_no: value } });
+      setTableNo("");
+      await qc.invalidateQueries({ queryKey: ["pos-tables"] });
+      toast.success(`Meja ${value} ditambahkan`);
+    } catch (e) { toast.error((e as Error).message); }
+  }
+
+  async function remove(no: string) {
+    if (!window.confirm(`Hapus Meja ${no}? QR meja ini tidak dapat membuat pesanan baru.`)) return;
+    try {
+      await removeTable({ data: { table_no: no } });
+      await qc.invalidateQueries({ queryKey: ["pos-tables"] });
+      toast.success(`Meja ${no} dihapus`);
+    } catch (e) { toast.error((e as Error).message); }
+  }
+
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 print:hidden">
-        <span className="text-sm">Jumlah meja</span>
-        <Input type="number" className="w-24" value={n} onChange={(e) => setN(Math.min(100, Math.max(1, +e.target.value)))} />
-        <Button variant="outline" onClick={() => window.print()}>Cetak QR</Button>
-      </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: n }, (_, i) => String(i + 1)).map((no) => (
-          <div key={no} className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4">
-            <QRCodeSVG value={`${origin}/meja/${no}`} size={130} />
-            <p className="font-display text-lg font-bold">Meja {no}</p>
+      <form onSubmit={createTable} className="flex flex-wrap items-end gap-2 rounded-xl border bg-card p-4">
+        <label className="min-w-48 flex-1 text-sm">Nomor / kode meja<Input value={tableNo} onChange={(e) => setTableNo(e.target.value)} placeholder="Contoh: 11 atau VIP-A" required maxLength={10} /></label>
+        <Button type="submit"><Plus className="mr-1 h-4 w-4" />Tambah meja</Button>
+        <Button type="button" variant="outline" onClick={() => window.print()}>Cetak QR</Button>
+      </form>
+      <p className="text-sm text-muted-foreground">Meja yang dihapus tidak bisa menerima pesanan baru dari QR. Meja dengan pesanan aktif harus diselesaikan terlebih dahulu.</p>
+      {isLoading ? <p className="p-4 text-muted-foreground">Memuat daftar meja…</p> : !tables.length ? <p className="rounded-xl border p-8 text-center text-muted-foreground">Belum ada meja aktif.</p> : (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {tables.map(({ table_no: no }) => (
+            <div key={no} className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4">
+              <QRCodeSVG value={`${origin}/meja/${encodeURIComponent(no)}`} size={130} />
+              <p className="font-display text-lg font-bold">Meja {no}</p>
+              <Button variant="destructive" size="sm" className="print:hidden" onClick={() => remove(no)}><Trash2 className="mr-1 h-3 w-3" />Hapus meja</Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SuperAdminPanel() {
+  const qc = useQueryClient();
+  const fetchSettings = useServerFn(getPosSettings);
+  const updateSetting = useServerFn(setCashierAddProductEnabled);
+  const { data: settings, isLoading } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings() });
+
+  async function toggle(enabled: boolean) {
+    try {
+      await updateSetting({ data: { enabled } });
+      await qc.invalidateQueries({ queryKey: ["pos-settings"] });
+      toast.success(enabled ? "Kasir sekarang diizinkan menambah barang" : "Penambahan barang dari kasir dinonaktifkan");
+    } catch (e) { toast.error((e as Error).message); }
+  }
+
+  return (
+    <div className="max-w-3xl space-y-4">
+      <div className="rounded-2xl border bg-card p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></span>
+          <div className="flex-1">
+            <h2 className="font-display text-xl font-bold">Kontrol akses kasir</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Atur apakah akun dengan hak akses kasir boleh membuat barang baru langsung dari halaman POS. Perubahan ini diperiksa kembali di backend.</p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className={settings?.cashierCanAddProducts ? "rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary" : "rounded-full bg-secondary px-3 py-1 text-sm font-semibold"}>{isLoading ? "Memuat…" : settings?.cashierCanAddProducts ? "Fitur aktif" : "Fitur nonaktif"}</span>
+              <Button disabled={isLoading || !settings} variant={settings?.cashierCanAddProducts ? "destructive" : "default"} onClick={() => toggle(!settings?.cashierCanAddProducts)}>{settings?.cashierCanAddProducts ? "Matikan tambah barang di kasir" : "Aktifkan tambah barang di kasir"}</Button>
+            </div>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );
