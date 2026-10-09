@@ -37,7 +37,15 @@ as $$
     ) then exists (
       select 1 from public.pos_tables where table_no = _table_no and active = true
     )
-    else _table_no ~ '^[0-9]+$'
+    else _table_no ~ '^[0-9]{1,3}
+  end
+$$;
+
+grant execute on function public.is_active_pos_table(text) to anon, authenticated, service_role;
+
+-- Tell PostgREST/Supabase API to refresh its schema cache after the DDL.
+notify pgrst, 'reload schema';
+
       and _table_no::integer between 1 and 100
   end
 $$;
