@@ -36,6 +36,13 @@
       "when": 1791849600000,
       "tag": "0004_cashier_messages_feedback_and_pos_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791936000000,
+      "tag": "0005_cashier_history_whatsapp_replies",
+      "breakpoints": true
     }
   ]
 }
