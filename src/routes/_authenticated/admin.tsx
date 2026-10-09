@@ -180,8 +180,8 @@ function Products() {
   }
 
   async function removeProduct(id: string, name: string) {
-    if (!window.confirm(`Hapus menu "${name}"? Menu akan disembunyikan dari pelanggan, riwayat transaksi tetap aman.`)) return;
-    try { await remove({ data: { id } }); toast.success("Menu dihapus"); qc.invalidateQueries({ queryKey: ["products-all"] }); }
+    if (!window.confirm(`HAPUS PERMANEN menu "${name}"? Menu akan dihapus dari katalog dan tidak bisa ditampilkan kembali. Riwayat transaksi dan restock tetap disimpan. Tindakan ini tidak bisa dibatalkan.`)) return;
+    try { await remove({ data: { id } }); toast.success("Menu dihapus permanen; riwayat tetap tersimpan"); qc.invalidateQueries({ queryKey: ["products-all"] }); }
     catch (e) { toast.error((e as Error).message); }
   }
 
@@ -211,7 +211,7 @@ function Products() {
             <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-3">
               <Button className="h-10 w-full" variant="outline" onClick={() => edit(p)}><Pencil className="mr-1 h-3 w-3" />Edit</Button>
               <Button className="h-10 w-full" variant="outline" onClick={() => toggle(p)}>{p.active ? "Sembunyikan" : "Tampilkan"}</Button>
-              <Button className="h-10 w-full" variant="destructive" disabled={!p.active} onClick={() => removeProduct(p.id, p.name)}><Trash2 className="mr-1 h-3 w-3" />Hapus</Button>
+              <Button className="h-10 w-full" variant="destructive" onClick={() => removeProduct(p.id, p.name)}><Trash2 className="mr-1 h-3 w-3" />Hapus</Button>
             </div>
           </article>
         ))}
@@ -223,7 +223,7 @@ function Products() {
           <tbody>{filteredProducts.map((p) => (
             <tr key={p.id} className={`border-t ${p.active ? "" : "opacity-50"}`}>
               <td className="p-3">{p.name}</td><td>{p.category}</td><td>{rp(p.price)}</td><td>{rp(p.cost)}</td><td>{p.stock}</td>
-              <td className="pr-3 text-right"><div className="flex justify-end gap-1"><Button size="sm" variant="outline" onClick={() => edit(p)}><Pencil className="mr-1 h-3 w-3" />Edit</Button><Button size="sm" variant="outline" onClick={() => toggle(p)}>{p.active ? "Sembunyikan" : "Tampilkan"}</Button><Button size="sm" variant="destructive" disabled={!p.active} onClick={() => removeProduct(p.id, p.name)}><Trash2 className="mr-1 h-3 w-3" />Hapus</Button></div></td>
+              <td className="pr-3 text-right"><div className="flex justify-end gap-1"><Button size="sm" variant="outline" onClick={() => edit(p)}><Pencil className="mr-1 h-3 w-3" />Edit</Button><Button size="sm" variant="outline" onClick={() => toggle(p)}>{p.active ? "Sembunyikan" : "Tampilkan"}</Button><Button size="sm" variant="destructive" onClick={() => removeProduct(p.id, p.name)}><Trash2 className="mr-1 h-3 w-3" />Hapus</Button></div></td>
             </tr>
           ))}</tbody>
         </table>
