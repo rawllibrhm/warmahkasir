@@ -42,6 +42,8 @@ export const createTableOrder = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const db = await admin();
+    const { data: activeTable, error: tableError } = await db.rpc("is_active_pos_table", { _table_no: data.table_no });
+    if (tableError || !activeTable) throw new Error("Meja tidak aktif atau sudah dihapus");
     const { rows, total, cost_total } = await buildItems(data.items);
     const { data: order, error } = await db
       .from("orders")
@@ -189,8 +191,25 @@ export const restockProduct = createServerFn({ method: "POST" })
 
 // ---------- Admin ----------
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
-  if (!data) throw new Error("Khusus admin");
+  const [adminRole, superAdminRole] = await Promise.all([
+    ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" }),
+    ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "super_admin" }),
+  ]);
+  if (!adminRole.data && !superAdminRole.data) throw new Error("Khusus admin");
+}
+
+async function assertSuperAdmin(ctx: { supabase: any; userId: string }) {
+  const { data, error } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "super_admin" });
+  if (error || !data) throw new Error("Fitur ini hanya untuk Super Admin");
+}
+
+async function assertCashierOrAdmin(ctx: { supabase: any; userId: string }) {
+  const roles = await Promise.all(["kasir", "admin", "super_admin"].map((_role) =>
+    ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role })
+  ));
+  if (!roles.some((r: { data: boolean | null }) => r.data === true)) {
+    throw new Error("Akun tidak memiliki akses kasir");
+  }
 }
 
 export const getReport = createServerFn({ method: "POST" })
@@ -243,6 +262,102 @@ export const upsertProduct = createServerFn({ method: "POST" })
     const { id, ...rest } = data;
     const row = { ...rest, barcode: rest.barcode || null };
     const { error } = id ? await db.from("products").update(row).eq("id", id) : await db.from("products").insert(row);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
+// ---------- Pengaturan Super Admin & meja ----------
+export const getPosSettings = createServerFn({ method: "POST" }).handler(async () => {
+  const db = await admin();
+  const { data, error } = await db.from("app_settings").select("value").eq("key", "cashier_can_add_products").maybeSingle();
+  if (error) throw new Error("Pengaturan POS tidak dapat dimuat");
+  return { cashierCanAddProducts: data?.value === true };
+});
+
+export const setCashierAddProductEnabled = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ enabled: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const db = await admin();
+    const { error } = await db.from("app_settings").upsert({
+      key: "cashier_can_add_products",
+      value: data.enabled,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(error.message);
+    return { cashierCanAddProducts: data.enabled };
+  });
+
+export const createCashierProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    name: z.string().trim().min(1).max(80),
+    barcode: z.string().trim().max(40).optional(),
+    category: z.string().trim().min(1).max(30),
+    price: z.number().int().min(0),
+    cost: z.number().int().min(0),
+    stock: z.number().int().min(0),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertCashierOrAdmin(context);
+    const db = await admin();
+    const { data: setting, error: settingError } = await db.from("app_settings").select("value").eq("key", "cashier_can_add_products").maybeSingle();
+    if (settingError || setting?.value !== true) throw new Error("Penambahan barang dari kasir belum diaktifkan Super Admin");
+    const { error } = await db.from("products").insert({
+      name: data.name,
+      barcode: data.barcode || null,
+      category: data.category,
+      price: data.price,
+      cost: data.cost,
+      stock: data.stock,
+      active: true,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const listPosTables = createServerFn({ method: "POST" }).handler(async () => {
+  const db = await admin();
+  const { data, error } = await db.from("pos_tables").select("table_no,active,created_at").eq("active", true).order("table_no");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+});
+
+export const addPosTable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ table_no: z.string().trim().min(1).max(10).regex(/^[a-zA-Z0-9-]+$/) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const db = await admin();
+    const { error } = await db.from("pos_tables").upsert({ table_no: data.table_no, active: true });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deletePosTable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ table_no: z.string().min(1).max(10) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const db = await admin();
+    const { data: pending, error: pendingError } = await db.from("orders").select("id").eq("table_no", data.table_no).in("status", ["menunggu_bukti", "menunggu_pembayaran", "menunggu_validasi"]).limit(1);
+    if (pendingError) throw new Error(pendingError.message);
+    if (pending?.length) throw new Error("Meja masih memiliki pesanan aktif; selesaikan atau tolak pesanan terlebih dahulu");
+    const { error } = await db.from("pos_tables").update({ active: false }).eq("table_no", data.table_no);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const db = await admin();
+    // Soft-delete: preserve product references and historical receipts.
+    const { error } = await db.from("products").update({ active: false }).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
