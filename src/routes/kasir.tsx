@@ -163,7 +163,7 @@ function Pos() {
   const [method, setMethod] = useState<"tunai" | "qris">("tunai");
 
   const filtered = products.filter((p) => p.active && (p.name.toLowerCase().includes(q.toLowerCase()) || p.barcode?.includes(q)));
-  const lines = useMemo(() => products.filter((p) => cart[p.id]).map((p) => ({ ...p, qty: cart[p.id] })), [products, cart]);
+  const lines = useMemo(() => products.filter((p) => cart[p.id]).map((p) => ({ ...p, qty: cart[p.id] ?? 0 })), [products, cart]);
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const c = method === "tunai" ? Number(cash || 0) : total;
   const add = (id: string, d: number) => setCart((x) => { const n = Math.max(0, (x[id] ?? 0) + d); const y = { ...x, [id]: n }; if (!n) delete y[id]; return y; });
@@ -242,7 +242,7 @@ function Restock() {
   async function save(id: string) {
     const v = vals[id];
     const qty = Number(v?.qty || 0);
-    if (qty < 1) return toast.error("Isi jumlah");
+    if (qty < 1) { toast.error("Isi jumlah"); return; }
     try {
       await restock({ data: { product_id: id, qty, cost: v?.cost ? Number(v.cost) : undefined } });
       toast.success("Stok ditambah");

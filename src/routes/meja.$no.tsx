@@ -40,7 +40,7 @@ function MenuPage() {
 
   const cats = ["Semua", ...Array.from(new Set(products.map((p) => p.category)))];
   const shown = cat === "Semua" ? products : products.filter((p) => p.category === cat);
-  const lines = useMemo(() => products.filter((p) => cart[p.id]).map((p) => ({ ...p, qty: cart[p.id] })), [products, cart]);
+  const lines = useMemo(() => products.filter((p) => cart[p.id]).map((p) => ({ ...p, qty: cart[p.id] ?? 0 })), [products, cart]);
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const add = (id: string, d: number) => setCart((c) => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + d) }));
@@ -82,7 +82,7 @@ function MenuPage() {
               <div className="flex items-center gap-3">
                 <Button size="icon" variant="outline" onClick={() => add(p.id, -1)}><Minus className="h-4 w-4" /></Button>
                 <span className="w-5 text-center font-bold">{cart[p.id]}</span>
-                <Button size="icon" onClick={() => add(p.id, 1)} disabled={cart[p.id] >= p.stock}><Plus className="h-4 w-4" /></Button>
+                <Button size="icon" onClick={() => add(p.id, 1)} disabled={(cart[p.id] ?? 0) >= p.stock}><Plus className="h-4 w-4" /></Button>
               </div>
             ) : (
               <Button onClick={() => add(p.id, 1)} disabled={p.stock <= 0}>Tambah</Button>
