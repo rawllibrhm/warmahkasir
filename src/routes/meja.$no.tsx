@@ -113,16 +113,6 @@ function MenuPage() {
         ))}
       </main>
 
-      <section className="mx-5 mb-6 mt-8 space-y-3 rounded-2xl border bg-card p-4">
-        <div><h2 className="font-display text-lg font-bold">Kritik & Saran</h2><p className="text-sm text-muted-foreground">Bantu kami meningkatkan pelayanan Warmah Kediri. Form ini juga tersedia setelah pesanan selesai.</p></div>
-        <form onSubmit={submitFeedback} className="space-y-3">
-          <Input placeholder="Nama (opsional)" value={feedbackName} onChange={e => setFeedbackName(e.target.value)} maxLength={60} />
-          <div className="grid grid-cols-2 gap-2"><Button type="button" variant={feedbackKind === "kritik" ? "default" : "outline"} onClick={() => setFeedbackKind("kritik")}>Kritik</Button><Button type="button" variant={feedbackKind === "saran" ? "default" : "outline"} onClick={() => setFeedbackKind("saran")}>Saran</Button></div>
-          <textarea className="min-h-24 w-full rounded-xl border bg-background p-3 text-sm" placeholder="Tuliskan kritik atau saran (minimal 3 karakter)" value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} required minLength={3} maxLength={1000} />
-          <Button className="w-full" type="submit" disabled={feedbackBusy || feedbackMessage.trim().length < 3}>{feedbackBusy ? "Mengirim…" : "Kirim Kritik / Saran"}</Button>
-        </form>
-      </section>
-
       {count > 0 && (
         <div className="fixed inset-x-0 bottom-0 mx-auto max-w-lg p-4">
           <Button className="h-14 w-full justify-between text-base" onClick={() => setOpen(true)}>
