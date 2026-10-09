@@ -40,13 +40,13 @@ function AdminPage() {
     navigate({ to: "/auth", replace: true });
   }
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-shell min-h-screen bg-background">
       <header className="flex items-center justify-between border-b px-5 py-3">
         <p className="font-display text-xl font-bold">Warmah<span className="text-primary">.</span>Admin</p>
         <Button variant="ghost" size="sm" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
       </header>
-      <Tabs defaultValue="laba" className="p-4">
-        <TabsList><TabsTrigger value="laba">Laba/Rugi</TabsTrigger><TabsTrigger value="produk">Produk</TabsTrigger><TabsTrigger value="qr">QR Meja</TabsTrigger></TabsList>
+      <Tabs defaultValue="laba" className="dashboard-content px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="h-11 w-fit rounded-xl bg-secondary p-1"><TabsTrigger className="rounded-lg px-4" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="produk">Produk</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="qr">QR Meja</TabsTrigger></TabsList></div>
         <TabsContent value="laba"><Report /></TabsContent>
         <TabsContent value="produk"><Products /></TabsContent>
         <TabsContent value="qr"><TableQr /></TabsContent>
@@ -92,7 +92,7 @@ function Report() {
         <Stat icon={TrendingUp} label={revenue - cost >= 0 ? "Laba" : "Rugi"} value={rp(revenue - cost)} accent />
         <Stat icon={Receipt} label="Transaksi" value={String(orders.length)} />
       </div>
-      <div className="overflow-x-auto rounded-xl border bg-card">
+      <div className="table-wrap overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary text-left"><tr><th className="p-3">#</th><th>Waktu</th><th>Sumber</th><th>Bayar</th><th className="text-right">Total</th><th className="pr-3 text-right">Laba</th></tr></thead>
           <tbody>
@@ -129,7 +129,7 @@ function ConfirmReset({ label, desc, onOk }: { label: string; desc: string; onOk
 
 function Stat({ icon: Icon, label, value, accent }: { icon: typeof Wallet; label: string; value: string; accent?: boolean }) {
   return (
-    <div className={`rounded-xl border p-4 ${accent ? "bg-primary text-primary-foreground" : "bg-card"}`}>
+    <div className={`stat-card rounded-2xl border p-5 ${accent ? "bg-primary text-primary-foreground" : "bg-card"}`}>
       <Icon className="h-5 w-5 opacity-70" />
       <p className="mt-2 text-sm opacity-80">{label}</p>
       <p className="font-display text-2xl font-bold">{value}</p>

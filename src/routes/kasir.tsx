@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellRing, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2 } from "lucide-react";
+import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct } from "@/lib/pos.functions";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
@@ -51,18 +51,18 @@ function KasirPage() {
   const dismiss = () => { stopRef.current?.(); stopRef.current = null; setAlert([]); };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-shell min-h-screen bg-background">
       <header className="flex items-center justify-between border-b px-5 py-3">
         <Link to="/" className="font-display text-xl font-bold">Warmah<span className="text-primary">.</span>Kasir</Link>
         <Button variant={armed ? "secondary" : "default"} size="sm" onClick={() => { setArmed(true); const s = startAlarm(); setTimeout(s, 400); }}>
           <Volume2 className="mr-1 h-4 w-4" />{armed ? "Alarm aktif" : "Aktifkan alarm"}
         </Button>
       </header>
-      <Tabs defaultValue="live" className="p-4">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="live">Order Meja {live.length > 0 && <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">{live.length}</span>}</TabsTrigger>
-          <TabsTrigger value="pos">POS</TabsTrigger>
-          <TabsTrigger value="stok">Restock</TabsTrigger>
+      <Tabs defaultValue="live" className="dashboard-content px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-6"><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Operasional</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Ruang kasir</h1><p className="mt-1 text-sm text-muted-foreground">Kelola pesanan, transaksi langsung, dan persediaan.</p></div><TabsList className="mb-5 grid h-11 w-full max-w-lg grid-cols-3 rounded-xl bg-secondary p-1">
+          <TabsTrigger className="rounded-lg" value="live">Order Meja {live.length > 0 && <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">{live.length}</span>}</TabsTrigger>
+          <TabsTrigger className="rounded-lg" value="pos">POS</TabsTrigger>
+          <TabsTrigger className="rounded-lg" value="stok">Restock</TabsTrigger>
         </TabsList>
         <TabsContent value="live"><LiveOrders live={live} /></TabsContent>
         <TabsContent value="pos"><Pos /></TabsContent>
@@ -106,7 +106,7 @@ function LiveOrders({ live }: { live: Live[] }) {
       {live.map((o) => {
         const c = Number(cash[o.id] || 0);
         return (
-          <div key={o.id} className="space-y-3 rounded-xl border bg-card p-4">
+          <div key={o.id} className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-display text-lg font-bold">Meja {o.table_no} <span className="text-sm text-muted-foreground">#{o.order_no}</span></p>
@@ -187,7 +187,7 @@ function Pos() {
   const quick = [total, 20000, 50000, 100000].filter((v, i, a) => v > 0 && a.indexOf(v) === i && v >= total);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div className="space-y-3">
         <form onSubmit={onScan} className="relative">
           <ScanBarcode className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
@@ -203,7 +203,7 @@ function Pos() {
           ))}
         </div>
       </div>
-      <div className="space-y-3 rounded-xl border bg-card p-4 lg:sticky lg:top-4 lg:self-start">
+      <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm xl:sticky xl:top-24 xl:self-start">
         <h2 className="font-display text-lg font-bold">Keranjang</h2>
         {!lines.length && <p className="text-sm text-muted-foreground">Belum ada item.</p>}
         {lines.map((l) => (
