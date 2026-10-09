@@ -171,7 +171,7 @@ function Pos() {
   function onScan(e: React.FormEvent) {
     e.preventDefault();
     const hit = products.find((p) => p.barcode === q.trim());
-    if (hit) { add(hit.id, 1); setQ(""); } else if (filtered.length === 1) { add(filtered[0].id, 1); setQ(""); }
+    if (hit) { add(hit.id, 1); setQ(""); } else if (filtered.length === 1) { add(filtered[0]!.id, 1); setQ(""); }
   }
 
   async function pay() {

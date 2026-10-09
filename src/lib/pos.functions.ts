@@ -75,7 +75,7 @@ export const submitProof = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const getOrder = createServerFn({ method: "GET" })
+export const getOrder = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const db = await admin();
@@ -90,13 +90,13 @@ export const getOrder = createServerFn({ method: "GET" })
   });
 
 // ---------- Kasir ----------
-export const listProductsAll = createServerFn({ method: "GET" }).handler(async () => {
+export const listProductsAll = createServerFn({ method: "POST" }).handler(async () => {
   const db = await admin();
   const { data } = await db.from("products").select("*").order("category").order("name");
   return data ?? [];
 });
 
-export const listLiveOrders = createServerFn({ method: "GET" }).handler(async () => {
+export const listLiveOrders = createServerFn({ method: "POST" }).handler(async () => {
   const db = await admin();
   const { data } = await db
     .from("orders")
@@ -241,8 +241,9 @@ export const upsertProduct = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const db = await admin();
-    const row = { ...data, barcode: data.barcode || null };
-    const { error } = data.id ? await db.from("products").update(row).eq("id", data.id) : await db.from("products").insert(row);
+    const { id, ...rest } = data;
+    const row = { ...rest, barcode: rest.barcode || null };
+    const { error } = id ? await db.from("products").update(row).eq("id", id) : await db.from("products").insert(row);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
