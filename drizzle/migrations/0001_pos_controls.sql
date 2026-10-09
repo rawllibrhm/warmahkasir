@@ -34,9 +34,15 @@ stable
 security definer
 set search_path = public
 as $$
-  select exists (
-    select 1 from public.pos_tables
-    where table_no = _table_no and active = true
-  )
+  select case
+    when exists (select 1 from public.pos_tables where table_no = _table_no)
+      then exists (select 1 from public.pos_tables where table_no = _table_no and active = true)
+    when _table_no ~ '^[0-9]+
+$$;
+grant execute on function public.is_active_pos_table(text) to anon, authenticated, service_role;
+
+      then case when _table_no::integer between 1 and 100 then true else false end
+    else false
+  end
 $$;
 grant execute on function public.is_active_pos_table(text) to anon, authenticated, service_role;
