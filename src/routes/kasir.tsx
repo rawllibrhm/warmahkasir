@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2, Search, PackagePlus, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, getPosSettings, createCashierProduct, listCashierMessages, listCashierHistory, acknowledgeCashierMessage, getPosSettings } from "@/lib/pos.functions";
+import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, getPosSettings, createCashierProduct, listCashierMessages, listCashierHistory, acknowledgeCashierMessage } from "@/lib/pos.functions";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
