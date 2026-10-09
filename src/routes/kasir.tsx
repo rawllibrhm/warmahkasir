@@ -59,10 +59,10 @@ function KasirPage() {
         </Button>
       </header>
       <Tabs defaultValue="live" className="dashboard-content px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6"><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Operasional</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Ruang kasir</h1><p className="mt-1 text-sm text-muted-foreground">Kelola pesanan, transaksi langsung, dan persediaan.</p></div><TabsList className="mb-5 grid h-11 w-full max-w-lg grid-cols-3 rounded-xl bg-secondary p-1">
-          <TabsTrigger className="rounded-lg" value="live">Order Meja {live.length > 0 && <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">{live.length}</span>}</TabsTrigger>
-          <TabsTrigger className="rounded-lg" value="pos">POS</TabsTrigger>
-          <TabsTrigger className="rounded-lg" value="stok">Restock</TabsTrigger>
+        <div className="mb-6"><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Operasional</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Ruang kasir</h1><p className="mt-1 text-sm text-muted-foreground">Kelola pesanan, transaksi langsung, dan persediaan.</p></div><TabsList className="mb-5 grid h-auto min-h-11 w-full max-w-lg grid-cols-3 rounded-xl bg-secondary p-1">
+          <TabsTrigger className="rounded-lg px-2 text-xs sm:text-sm" value="live">Order Meja {live.length > 0 && <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">{live.length}</span>}</TabsTrigger>
+          <TabsTrigger className="rounded-lg px-2 text-xs sm:text-sm" value="pos">POS</TabsTrigger>
+          <TabsTrigger className="rounded-lg px-2 text-xs sm:text-sm" value="stok">Restock</TabsTrigger>
         </TabsList>
         <TabsContent value="live"><LiveOrders live={live} /></TabsContent>
         <TabsContent value="pos"><Pos /></TabsContent>
@@ -106,7 +106,7 @@ function LiveOrders({ live }: { live: Live[] }) {
       {live.map((o) => {
         const c = Number(cash[o.id] || 0);
         return (
-          <div key={o.id} className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
+          <div key={o.id} className="min-w-0 space-y-3 rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-display text-lg font-bold">Meja {o.table_no} <span className="text-sm text-muted-foreground">#{o.order_no}</span></p>
@@ -121,7 +121,7 @@ function LiveOrders({ live }: { live: Live[] }) {
                 <Button variant="outline" className="flex-1" disabled={!o.proof_path} onClick={async () => { setZoom(false); setImg(await proof({ data: { id: o.id } })); }}>
                   <ZoomIn className="mr-1 h-4 w-4" />{o.proof_path ? "Cek Bukti" : "Belum upload"}
                 </Button>
-                <Button className="flex-1" disabled={o.status !== "menunggu_validasi"} onClick={() => act(() => confirm({ data: { id: o.id } }), "Pesanan dikonfirmasi")}>Konfirmasi Pesanan</Button>
+                <Button className="w-full sm:flex-1" disabled={o.status !== "menunggu_validasi"} onClick={() => act(() => confirm({ data: { id: o.id } }), "Pesanan dikonfirmasi")}>Konfirmasi Pesanan</Button>
               </div>
             ) : (
               <div className="space-y-2">
@@ -203,7 +203,7 @@ function Pos() {
   const quick = [total, 20000, 50000, 100000].filter((v, i, a) => v > 0 && a.indexOf(v) === i && v >= total);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_390px] sm:gap-5">
       <div className="space-y-3">
         <div className="flex flex-col gap-2 sm:flex-row">
           <form onSubmit={onScan} className="relative min-w-0 flex-1">
@@ -224,9 +224,9 @@ function Pos() {
             <div className="flex gap-2 sm:col-span-2 xl:col-span-3"><Button type="submit">Simpan barang</Button><Button type="button" variant="outline" onClick={() => setNewProductOpen(false)}>Batal</Button></div>
           </form>
         )}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
           {filtered.map((p) => (
-            <button key={p.id} onClick={() => add(p.id, 1)} disabled={p.stock <= (cart[p.id] ?? 0)} className="rounded-xl border bg-card p-3 text-left transition hover:border-primary disabled:opacity-40">
+            <button key={p.id} onClick={() => add(p.id, 1)} disabled={p.stock <= (cart[p.id] ?? 0)} className="min-w-0 break-words rounded-xl border bg-card p-3 text-left transition hover:border-primary disabled:opacity-40 sm:p-4">
               <p className="font-semibold leading-tight">{p.name}</p>
               <p className="text-sm font-bold text-primary">{rp(p.price)}</p>
               <p className="text-xs text-muted-foreground">Stok {p.stock}</p>
@@ -234,7 +234,7 @@ function Pos() {
           ))}
         </div>
       </div>
-      <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm xl:sticky xl:top-24 xl:self-start">
+      <div className="min-w-0 space-y-4 rounded-2xl border bg-card p-4 shadow-sm sm:p-5 xl:sticky xl:top-24 xl:self-start">
         <h2 className="font-display text-lg font-bold">Keranjang</h2>
         {!lines.length && <p className="text-sm text-muted-foreground">Belum ada item.</p>}
         {lines.map((l) => (
@@ -288,24 +288,38 @@ function Restock() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 rounded-xl border bg-card p-3"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Cari barang restock berdasarkan nama, kategori, atau barcode…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
-      <div className="overflow-x-auto rounded-xl border bg-card">
-      <table className="w-full text-sm">
-        <thead className="bg-secondary text-left"><tr><th className="p-3">Produk</th><th>Barcode</th><th>Stok</th><th>Modal</th><th>Tambah</th><th>Modal baru</th><th /></tr></thead>
-        <tbody>
-          {filteredProducts.map((p) => (
-            <tr key={p.id} className="border-t">
-              <td className="p-3 font-medium">{p.name}</td>
-              <td className="text-muted-foreground">{p.barcode}</td>
-              <td className={p.stock < 10 ? "font-bold text-destructive" : ""}>{p.stock}</td>
-              <td>{rp(p.cost)}</td>
-              <td><Input className="h-8 w-20" type="number" value={vals[p.id]?.qty ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { ...vals[p.id], qty: e.target.value, cost: vals[p.id]?.cost ?? "" } })} /></td>
-              <td><Input className="h-8 w-24" type="number" placeholder="opsional" value={vals[p.id]?.cost ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { ...vals[p.id], cost: e.target.value, qty: vals[p.id]?.qty ?? "" } })} /></td>
-              <td className="pr-3"><Button size="sm" onClick={() => save(p.id)}>Simpan</Button></td>
-            </tr>
-          ))}
-          {!filteredProducts.length && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Barang tidak ditemukan.</td></tr>}
-        </tbody>
-      </table>
+      <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary text-left"><tr><th className="p-3">Produk</th><th>Barcode</th><th>Stok</th><th>Modal</th><th>Tambah</th><th>Modal baru</th><th /></tr></thead>
+          <tbody>
+            {filteredProducts.map((p) => (
+              <tr key={p.id} className="border-t">
+                <td className="p-3 font-medium">{p.name}</td><td className="text-muted-foreground">{p.barcode || "—"}</td>
+                <td className={p.stock < 10 ? "font-bold text-destructive" : ""}>{p.stock}</td><td>{rp(p.cost)}</td>
+                <td><Input aria-label={`Jumlah restock ${p.name}`} className="h-9 w-20" type="number" min="1" value={vals[p.id]?.qty ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { ...vals[p.id], qty: e.target.value, cost: vals[p.id]?.cost ?? "" } })} /></td>
+                <td><Input aria-label={`Modal baru ${p.name}`} className="h-9 w-24" type="number" min="0" placeholder="Opsional" value={vals[p.id]?.cost ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { ...vals[p.id], cost: e.target.value, qty: vals[p.id]?.qty ?? "" } })} /></td>
+                <td className="pr-3"><Button size="sm" onClick={() => save(p.id)}>Simpan</Button></td>
+              </tr>
+            ))}
+            {!filteredProducts.length && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Barang tidak ditemukan.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-3 md:hidden">
+        {filteredProducts.map((p) => (
+          <section key={p.id} className="min-w-0 space-y-3 rounded-2xl border bg-card p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0"><h3 className="break-words font-semibold">{p.name}</h3><p className="break-all text-xs text-muted-foreground">{p.barcode || "Tanpa barcode"} · {p.category}</p></div>
+              <div className="shrink-0 text-right"><p className={p.stock < 10 ? "font-bold text-destructive" : "font-semibold"}>Stok {p.stock}</p><p className="text-xs text-muted-foreground">Modal {rp(p.cost)}</p></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="min-w-0 text-sm">Jumlah tambah<Input aria-label={`Jumlah restock ${p.name}`} className="mt-1 h-11 w-full" type="number" min="1" inputMode="numeric" placeholder="0" value={vals[p.id]?.qty ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { ...vals[p.id], qty: e.target.value, cost: vals[p.id]?.cost ?? "" } })} /></label>
+              <label className="min-w-0 text-sm">Modal baru<Input aria-label={`Modal baru ${p.name}`} className="mt-1 h-11 w-full" type="number" min="0" inputMode="numeric" placeholder="Opsional" value={vals[p.id]?.cost ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { ...vals[p.id], cost: e.target.value, qty: vals[p.id]?.qty ?? "" } })} /></label>
+            </div>
+            <Button className="h-11 w-full" onClick={() => save(p.id)}>Simpan restock</Button>
+          </section>
+        ))}
+        {!filteredProducts.length && <p className="rounded-xl border p-6 text-center text-sm text-muted-foreground">Barang tidak ditemukan.</p>}
       </div>
     </div>
   );
