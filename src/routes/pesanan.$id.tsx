@@ -3,12 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { CheckCircle2, Clock, Upload, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Upload, XCircle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getOrder, submitProof } from "@/lib/pos.functions";
+import { getOrder, submitProof, submitCustomerFeedback, getPosSettings } from "@/lib/pos.functions";
 import { rp, STATUS_LABEL } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // Ganti dengan string QRIS asli toko Anda.
 
@@ -31,12 +32,31 @@ function OrderPage() {
   const { id } = Route.useParams();
   const fetchOrder = useServerFn(getOrder);
   const send = useServerFn(submitProof);
+  const sendFeedback = useServerFn(submitCustomerFeedback);
+  const fetchSettings = useServerFn(getPosSettings);
+  const { data: posSettings } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), staleTime: 30000 });
+  const [feedbackKind, setFeedbackKind] = useState<"kritik" | "saran">("saran");
+  const [feedbackName, setFeedbackName] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { data: o, refetch, isLoading } = useQuery({
     queryKey: ["order", id],
     queryFn: () => fetchOrder({ data: { id } }),
     refetchInterval: (q) => (q.state.data?.status === "dikonfirmasi" || q.state.data?.status === "ditolak" ? false : 3000),
   });
+
+  async function submitFeedback(e: React.FormEvent) {
+    e.preventDefault();
+    setFeedbackBusy(true);
+    try {
+      await sendFeedback({ data: { table_no: o?.table_no ?? "", kind: feedbackKind, message: feedbackMessage, ...(feedbackName.trim() ? { customer_name: feedbackName.trim() } : {}) } });
+      toast.success("Terima kasih, kritik dan saran Anda terkirim.");
+      setFeedbackMessage("");
+      setFeedbackName("");
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setFeedbackBusy(false); }
+  }
 
   async function upload(file: File) {
     setUploading(true);
@@ -107,6 +127,19 @@ function OrderPage() {
           <div className="mt-2 flex justify-between border-t pt-2 font-bold"><span>Total</span><span>{rp(o.total)}</span></div>
         </div>
       )}
+      {o.status === "dikonfirmasi" && <>
+        <section className="space-y-3 rounded-2xl border bg-card p-4">
+          <h2 className="font-display text-lg font-bold">Bagaimana pengalaman Anda?</h2>
+          <p className="text-sm text-muted-foreground">Pesanan selesai. Kritik dan saran Anda membantu kami meningkatkan pelayanan.</p>
+          <form onSubmit={submitFeedback} className="space-y-3">
+            <Input placeholder="Nama (opsional)" value={feedbackName} onChange={e => setFeedbackName(e.target.value)} maxLength={60} />
+            <div className="grid grid-cols-2 gap-2"><Button type="button" variant={feedbackKind === "kritik" ? "default" : "outline"} onClick={() => setFeedbackKind("kritik")}>Kritik</Button><Button type="button" variant={feedbackKind === "saran" ? "default" : "outline"} onClick={() => setFeedbackKind("saran")}>Saran</Button></div>
+            <textarea className="min-h-24 w-full rounded-xl border bg-background p-3 text-sm" placeholder="Tulis kritik atau saran Anda…" value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} required minLength={3} maxLength={1000} />
+            <Button type="submit" className="w-full" disabled={feedbackBusy || feedbackMessage.trim().length < 3}>{feedbackBusy ? "Mengirim…" : "Kirim Kritik / Saran"}</Button>
+          </form>
+        </section>
+        <a className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] font-semibold text-white" href={`https://wa.me/${(posSettings?.whatsappNumber || "6285142274765").replace(/\\D/g, "")}?text=${encodeURIComponent(`Halo Warmah Kediri, saya pelanggan meja ${o.table_no}, pesanan #${o.order_no} sudah selesai.`)}`} target="_blank" rel="noreferrer"><MessageCircle className="h-5 w-5" />Hubungi via WhatsApp</a>
+      </>}
       <Button variant="outline" className="w-full" onClick={() => history.back()}>Kembali ke Menu</Button>
     </div>
   );
