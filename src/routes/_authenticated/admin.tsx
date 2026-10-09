@@ -293,7 +293,7 @@ function TableQr() {
 
   async function createTable(e: React.FormEvent) {
     e.preventDefault();
-    const value = tableNo.trim();
+    const value = tableNo.trim().replace(/^meja\s+/i, "").replace(/\s+/g, " ");
     if (!value) return;
     try {
       await addTable({ data: { table_no: value } });
