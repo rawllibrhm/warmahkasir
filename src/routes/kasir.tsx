@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2, Search, PackagePlus, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, getPosSettings, createCashierProduct, listCashierMessages, listCashierHistory, acknowledgeCashierMessage } from "@/lib/pos.functions";
+import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, getPosSettings, createCashierProduct, listCashierMessages, getCashierHistorySecure, acknowledgeCashierMessage } from "@/lib/pos.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -139,7 +139,7 @@ function KasirPage() {
 }
 
 function CashierHistory() {
-  const fetchHistory = useServerFn(listCashierHistory);
+  const fetchHistory = useServerFn(getCashierHistorySecure);
   const fetchSettings = useServerFn(getPosSettings);
   const today = () => {
     const d = new Date();
