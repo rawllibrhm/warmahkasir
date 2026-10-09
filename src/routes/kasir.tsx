@@ -94,8 +94,9 @@ function KasirPage() {
       </Tabs>
 
       <Dialog open={messageAlert.length > 0} onOpenChange={(o) => !o && setMessageAlert([])}>
-        <DialogContent className="border-4 border-primary">
-          <DialogHeader><DialogTitle className="flex items-center gap-2 text-2xl"><MessageSquare className="h-7 w-7 animate-bounce text-primary" /> Pesan dari Admin</DialogTitle></DialogHeader>
+        <DialogContent className="border-4 border-amber-500 bg-amber-50 text-slate-900 dark:bg-amber-950 dark:text-amber-50">
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-2xl"><BellRing className="h-7 w-7 animate-bounce text-amber-600" /> Pesan Operasional dari Admin</DialogTitle></DialogHeader>
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">Notifikasi khusus · berbeda dari order meja</p>
           <div className="max-h-[55vh] space-y-2 overflow-y-auto">
             {messageAlert.map((m) => <div key={m.id} className="rounded-lg bg-secondary p-3"><p className="whitespace-pre-wrap break-words">{m.message}</p><p className="mt-2 text-xs text-muted-foreground">{m.created_by || "Admin"} · {new Date(m.created_at).toLocaleString("id-ID")}</p></div>)}
           </div>
