@@ -237,7 +237,7 @@ function TableQr() {
   const fetchTables = useServerFn(listPosTables);
   const addTable = useServerFn(addPosTable);
   const removeTable = useServerFn(deletePosTable);
-  const { data: tables = [], isLoading } = useQuery({ queryKey: ["pos-tables"], queryFn: () => fetchTables() });
+  const { data: tables = [], isLoading, isError, error, refetch } = useQuery({ queryKey: ["pos-tables"], queryFn: () => fetchTables() });
   const [tableNo, setTableNo] = useState("");
 
   async function createTable(e: React.FormEvent) {
@@ -270,7 +270,14 @@ function TableQr() {
         <Button className="h-11 w-full sm:w-auto" type="button" variant="outline" onClick={() => window.print()}>Cetak QR</Button>
       </form>
       <p className="text-sm text-muted-foreground">Meja yang dihapus tidak bisa menerima pesanan baru dari QR. Meja dengan pesanan aktif harus diselesaikan terlebih dahulu.</p>
-      {isLoading ? <p className="p-4 text-muted-foreground">Memuat daftar meja…</p> : !tables.length ? <p className="rounded-xl border p-8 text-center text-muted-foreground">Belum ada meja aktif.</p> : (
+      {isLoading ? <p className="p-4 text-muted-foreground">Memuat daftar meja…</p> : isError ? (
+        <div role="alert" className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+          <p className="font-semibold text-destructive">Daftar meja gagal dimuat.</p>
+          <p className="break-words text-sm text-muted-foreground">{error instanceof Error ? error.message : "Periksa koneksi database dan migrasi pos_tables."}</p>
+          <Button type="button" variant="outline" onClick={() => refetch()}>Coba muat ulang</Button>
+          <p className="text-xs text-muted-foreground">Jika muncul “Could not find the table 'public.pos_tables' in the schema cache”, jalankan migrasi 0003_repair_pos_tables.sql pada project Supabase yang dipakai aplikasi.</p>
+        </div>
+      ) : !tables.length ? <p className="rounded-xl border p-8 text-center text-muted-foreground">Belum ada meja aktif.</p> : (
         <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
           {[...tables].sort((a, b) => a.table_no.localeCompare(b.table_no, "id", { numeric: true })).map(({ table_no: no }) => (
             <div key={no} className="flex min-w-0 flex-col items-center gap-3 rounded-xl border bg-card p-4">
