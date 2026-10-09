@@ -3,10 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins, Pencil, Plus, ShieldCheck, Search } from "lucide-react";
+import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins, Pencil, Plus, ShieldCheck, Search, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getReport, resetRevenue, listProductsAll, upsertProduct, deleteProduct, listPosTables, addPosTable, deletePosTable, getPosSettings, setCashierAddProductEnabled, getAdminPermissions } from "@/lib/pos.functions";
+import { getReport, resetRevenue, listProductsAll, upsertProduct, deleteProduct, listPosTables, addPosTable, deletePosTable, getPosSettings, setCashierAddProductEnabled, getAdminPermissions, sendCashierMessage } from "@/lib/pos.functions";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,7 @@ function AdminPage() {
         <Button variant="outline" size="sm" className="rounded-xl" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
       </header>
       <Tabs defaultValue="laba" className="dashboard-content px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-secondary p-1 sm:w-fit"><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="produk">Produk</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="qr">Meja & QR</TabsTrigger>{permissions?.isAdmin && <TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="cashier-settings">Pengaturan Kasir</TabsTrigger>}</TabsList></div>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-secondary p-1 sm:w-fit"><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="produk">Produk</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="qr">Meja & QR</TabsTrigger>{permissions?.isSuperAdmin && <TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="messages">Pesan Kasir</TabsTrigger>}{permissions?.isAdmin && <TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="cashier-settings">Pengaturan Kasir</TabsTrigger>}</TabsList></div>
         <TabsContent value="laba"><Report /></TabsContent>
         <TabsContent value="produk"><Products /></TabsContent>
         <TabsContent value="qr"><TableQr /></TabsContent>
@@ -320,6 +320,40 @@ function CashierSettingsPanel({ canManage }: { canManage: boolean }) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+function CashierMessagePanel() {
+  const send = useServerFn(sendCashierMessage);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await send({ data: { message } });
+      setMessage("");
+      toast.success("Pesan dikirim ke halaman kasir");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="max-w-2xl space-y-4">
+      <div className="rounded-2xl border bg-card p-4 sm:p-6">
+        <div className="flex items-center gap-3">
+          <span className="rounded-xl bg-primary/10 p-3 text-primary"><MessageSquare className="h-6 w-6" /></span>
+          <div><h2 className="font-display text-xl font-bold">Pesan untuk Kasir</h2><p className="text-sm text-muted-foreground">Pesan akan muncul sebagai notifikasi beralarm di halaman kasir yang sedang terbuka.</p></div>
+        </div>
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          <label className="block text-sm font-medium">Isi pesan<textarea className="mt-1 min-h-28 w-full rounded-xl border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} required placeholder="Contoh: Mohon cek stok minuman dan rapikan area kasir." /></label>
+          <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">{message.length}/500 karakter</span><Button type="submit" disabled={busy || !message.trim()}><MessageSquare className="mr-2 h-4 w-4" />{busy ? "Mengirim…" : "Kirim pesan"}</Button></div>
+        </form>
       </div>
     </div>
   );
