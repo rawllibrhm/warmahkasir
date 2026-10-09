@@ -453,11 +453,34 @@ export const submitCustomerFeedback = createServerFn({ method: "POST" })
 
 
 export const listCashierHistory = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ from: z.string(), to: z.string() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertCashierOrAdmin(context);
+  .inputValidator((d) => z.object({
+    from: z.string().datetime(),
+    to: z.string().datetime(),
+    accessToken: z.string().min(20).max(5000),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    // TanStack Server Functions do not automatically forward the Supabase
+    // browser session as an Authorization header. Validate the session token
+    // explicitly here rather than treating a missing header as an auth failure.
+    const { createClient } = await import("@supabase/supabase-js");
+    const url = process.env["SUPABASE_URL"];
+    const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
+    if (!url || !key) throw new Error("Konfigurasi autentikasi belum lengkap.");
+    const authClient = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(data.accessToken);
+    const claims = claimsData?.claims;
+    const userId = typeof claims?.sub === "string" ? claims.sub : "";
+    if (claimsError || !userId) throw new Error("Sesi login tidak valid. Silakan login ulang.");
+    const email = String(claims?.email ?? "").toLowerCase();
     const db = await admin();
+    if (email !== "warmah@kediri.com") {
+      const { data: roles, error: rolesError } = await db.from("user_roles")
+        .select("role").eq("user_id", userId).in("role", ["kasir", "admin", "super_admin"]);
+      if (rolesError) throw new Error("Gagal memeriksa izin akun.");
+      if (!roles?.length) throw new Error("Akun tidak memiliki akses kasir.");
+    }
     const { data: orders, error } = await db.from("orders")
       .select("id,order_no,source,table_no,payment_method,total,status,created_at,confirmed_at,order_items(name,qty,price)")
       .eq("status", "dikonfirmasi")
