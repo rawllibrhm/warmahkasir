@@ -41,9 +41,9 @@ function AdminPage() {
   }
   return (
     <div className="app-shell min-h-screen bg-background">
-      <header className="flex items-center justify-between border-b px-5 py-3">
-        <p className="font-display text-xl font-bold">Warmah<span className="text-primary">.</span>Admin</p>
-        <Button variant="ghost" size="sm" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
+      <header className="app-header sticky top-0 z-20 flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <div className="brand-lockup"><span className="brand-mark"><TrendingUp className="h-5 w-5" /></span><span><span className="brand-name block">warmah<span className="text-primary">kasir</span></span><span className="block text-xs text-muted-foreground">Dashboard admin</span></span></div>
+        <Button variant="outline" size="sm" className="rounded-xl" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
       </header>
       <Tabs defaultValue="laba" className="dashboard-content px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="h-11 w-fit rounded-xl bg-secondary p-1"><TabsTrigger className="rounded-lg px-4" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="produk">Produk</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="qr">QR Meja</TabsTrigger></TabsList></div>

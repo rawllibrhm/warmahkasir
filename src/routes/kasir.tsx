@@ -52,9 +52,9 @@ function KasirPage() {
 
   return (
     <div className="app-shell min-h-screen bg-background">
-      <header className="flex items-center justify-between border-b px-5 py-3">
-        <Link to="/" className="font-display text-xl font-bold">Warmah<span className="text-primary">.</span>Kasir</Link>
-        <Button variant={armed ? "secondary" : "default"} size="sm" onClick={() => { setArmed(true); const s = startAlarm(); setTimeout(s, 400); }}>
+      <header className="app-header sticky top-0 z-20 flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <Link to="/" className="brand-lockup"><span className="brand-mark"><ChefHat className="h-5 w-5" /></span><span><span className="brand-name block">warmah<span className="text-primary">kasir</span></span><span className="block text-xs text-muted-foreground">Meja operasional</span></span></Link>
+        <Button className="rounded-xl" variant={armed ? "secondary" : "default"} size="sm" onClick={() => { setArmed(true); const s = startAlarm(); setTimeout(s, 400); }}>
           <Volume2 className="mr-1 h-4 w-4" />{armed ? "Alarm aktif" : "Aktifkan alarm"}
         </Button>
       </header>
