@@ -245,7 +245,7 @@ function TableQr() {
       <p className="text-sm text-muted-foreground">Meja yang dihapus tidak bisa menerima pesanan baru dari QR. Meja dengan pesanan aktif harus diselesaikan terlebih dahulu.</p>
       {isLoading ? <p className="p-4 text-muted-foreground">Memuat daftar meja…</p> : !tables.length ? <p className="rounded-xl border p-8 text-center text-muted-foreground">Belum ada meja aktif.</p> : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {tables.map(({ table_no: no }) => (
+          {[...tables].sort((a, b) => a.table_no.localeCompare(b.table_no, "id", { numeric: true })).map(({ table_no: no }) => (
             <div key={no} className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4">
               <QRCodeSVG value={`${origin}/meja/${encodeURIComponent(no)}`} size={130} />
               <p className="font-display text-lg font-bold">Meja {no}</p>
