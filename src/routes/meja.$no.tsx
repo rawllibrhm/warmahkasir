@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Minus, Plus, ShoppingBag, Wallet, QrCode, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { createTableOrder, submitCustomerFeedback, getPosSettings } from "@/lib/pos.functions";
+import { createTableOrder, getPosSettings } from "@/lib/pos.functions";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,6 @@ function MenuPage() {
   const { no } = Route.useParams();
   const navigate = useNavigate();
   const create = useServerFn(createTableOrder);
-  const sendFeedback = useServerFn(submitCustomerFeedback);
   const fetchSettings = useServerFn(getPosSettings);
   const { data: posSettings } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), staleTime: 30000 });
   const { data: products = [], isLoading } = useQuery({
@@ -40,10 +39,6 @@ function MenuPage() {
   const [method, setMethod] = useState<"tunai" | "qris">("qris");
   const [busy, setBusy] = useState(false);
   const [cat, setCat] = useState("Semua");
-  const [feedbackKind, setFeedbackKind] = useState<"kritik" | "saran">("saran");
-  const [feedbackName, setFeedbackName] = useState("");
-  const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [feedbackBusy, setFeedbackBusy] = useState(false);
 
   const cats = ["Semua", ...Array.from(new Set(products.map((p) => p.category)))];
   const shown = cat === "Semua" ? products : products.filter((p) => p.category === cat);
@@ -52,20 +47,6 @@ function MenuPage() {
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const add = (id: string, d: number) => setCart((c) => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + d) }));
 
-  async function submitFeedback(e: React.FormEvent) {
-    e.preventDefault();
-    setFeedbackBusy(true);
-    try {
-      await sendFeedback({ data: { table_no: no, kind: feedbackKind, message: feedbackMessage, ...(feedbackName.trim() ? { customer_name: feedbackName.trim() } : {}) } });
-      toast.success("Terima kasih, kritik dan saran Anda sudah terkirim.");
-      setFeedbackMessage("");
-      setFeedbackName("");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setFeedbackBusy(false);
-    }
-  }
 
   async function checkout() {
     setBusy(true);
