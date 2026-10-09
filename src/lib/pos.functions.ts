@@ -391,3 +391,47 @@ export const getAdminPermissions = createServerFn({ method: "POST" })
       isSuperAdmin: superRole.data === true || bootstrapSuperAdmin || namedSuperAdmin,
     };
   });
+
+
+// ---------- Pesan admin ke kasir & kritik/saran pelanggan ----------
+export const listCashierMessages = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertCashierOrAdmin(context);
+    const db = await admin();
+    const { data, error } = await db.from("pos_messages").select("id,message,created_at,created_by").eq("active", true).order("created_at", { ascending: false }).limit(30);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const sendCashierMessage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ message: z.string().trim().min(1).max(500) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const db = await admin();
+    const { error } = await db.from("pos_messages").insert({ message: data.message, created_by: String(context.claims?.email ?? "Admin") });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const submitCustomerFeedback = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({
+    table_no: z.string().trim().min(1).max(10),
+    customer_name: z.string().trim().max(60).optional(),
+    kind: z.enum(["kritik", "saran"]),
+    message: z.string().trim().min(3).max(1000),
+  }).parse(d))
+  .handler(async ({ data }) => {
+    const db = await admin();
+    const { data: activeTable, error: tableError } = await db.rpc("is_active_pos_table", { _table_no: data.table_no });
+    if (tableError || !activeTable) throw new Error("Meja tidak aktif. Silakan hubungi kasir.");
+    const { error } = await db.from("customer_feedback").insert({
+      table_no: data.table_no,
+      customer_name: data.customer_name || null,
+      kind: data.kind,
+      message: data.message,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
