@@ -213,3 +213,10 @@ button, a { transition: color 160ms ease, background-color 160ms ease, border-co
   .home-hero { border-radius: 1.4rem; }
   .feature-card { min-height: auto; }
 }
+
+/* Remove the entire injected Lovable branding widget on every route. */
+#lovable-badge {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
