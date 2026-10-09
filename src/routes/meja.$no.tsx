@@ -2,10 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Minus, Plus, ShoppingBag, Wallet, QrCode } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Wallet, QrCode, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { createTableOrder } from "@/lib/pos.functions";
+import { createTableOrder, submitCustomerFeedback } from "@/lib/pos.functions";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ function MenuPage() {
   const { no } = Route.useParams();
   const navigate = useNavigate();
   const create = useServerFn(createTableOrder);
+  const sendFeedback = useServerFn(submitCustomerFeedback);
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["menu"],
     queryFn: async () => (await supabase.from("products").select("id,name,category,price,stock").order("category").order("name")).data ?? [],
@@ -37,6 +38,10 @@ function MenuPage() {
   const [method, setMethod] = useState<"tunai" | "qris">("qris");
   const [busy, setBusy] = useState(false);
   const [cat, setCat] = useState("Semua");
+  const [feedbackKind, setFeedbackKind] = useState<"kritik" | "saran">("saran");
+  const [feedbackName, setFeedbackName] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
 
   const cats = ["Semua", ...Array.from(new Set(products.map((p) => p.category)))];
   const shown = cat === "Semua" ? products : products.filter((p) => p.category === cat);
@@ -44,6 +49,21 @@ function MenuPage() {
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const add = (id: string, d: number) => setCart((c) => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + d) }));
+
+  async function submitFeedback(e: React.FormEvent) {
+    e.preventDefault();
+    setFeedbackBusy(true);
+    try {
+      await sendFeedback({ data: { table_no: no, kind: feedbackKind, message: feedbackMessage, ...(feedbackName.trim() ? { customer_name: feedbackName.trim() } : {}) } });
+      toast.success("Terima kasih, kritik dan saran Anda sudah terkirim.");
+      setFeedbackMessage("");
+      setFeedbackName("");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setFeedbackBusy(false);
+    }
+  }
 
   async function checkout() {
     setBusy(true);
@@ -99,6 +119,10 @@ function MenuPage() {
           </Button>
         </div>
       )}
+
+      <a href="https://wa.me/6285142274765?text=Halo%20Warmah%20Kediri%2C%20saya%20pelanggan%20meja%20${encodeURIComponent(no)}" target="_blank" rel="noreferrer" aria-label="Hubungi Warmah Kediri melalui WhatsApp" className="fixed bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105">
+        <MessageCircle className="h-6 w-6" />
+      </a>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="mx-auto max-h-[90vh] max-w-lg overflow-y-auto rounded-t-2xl">
