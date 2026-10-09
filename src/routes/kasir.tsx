@@ -183,7 +183,7 @@ function Pos() {
   async function saveNewProduct(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await createProduct({ data: { name: newProduct.name, barcode: newProduct.barcode || undefined, category: newProduct.category, price: Number(newProduct.price), cost: Number(newProduct.cost), stock: Number(newProduct.stock) } });
+      await createProduct({ data: { name: newProduct.name, ...(newProduct.barcode ? { barcode: newProduct.barcode } : {}), category: newProduct.category, price: Number(newProduct.price), cost: Number(newProduct.cost), stock: Number(newProduct.stock) } });
       toast.success("Barang baru berhasil ditambahkan");
       setNewProduct({ name: "", barcode: "", category: "Makanan", price: "", cost: "", stock: "" });
       setNewProductOpen(false);
