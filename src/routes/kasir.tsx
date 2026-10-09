@@ -33,9 +33,10 @@ function KasirPage() {
   const seen = useRef<Set<string> | null>(null);
   const stopRef = useRef<null | (() => void)>(null);
 
-  const { data: live = [] } = useQuery({ queryKey: ["live"], queryFn: () => fetchLive(), refetchInterval: 2500 });
+  const { data: live = [], isSuccess } = useQuery({ queryKey: ["live"], queryFn: () => fetchLive(), refetchInterval: 2500 });
 
   useEffect(() => {
+    if (!isSuccess) return;
     const ids = new Set(live.map((o) => o.id));
     if (seen.current === null) { seen.current = ids; return; }
     const fresh = live.filter((o) => !seen.current!.has(o.id));
@@ -45,7 +46,7 @@ function KasirPage() {
       setAlert((a) => [...a, ...fresh]);
       if (armed && !stopRef.current) stopRef.current = startAlarm();
     }
-  }, [live, armed]);
+  }, [live, armed, isSuccess]);
 
   const dismiss = () => { stopRef.current?.(); stopRef.current = null; setAlert([]); };
 
