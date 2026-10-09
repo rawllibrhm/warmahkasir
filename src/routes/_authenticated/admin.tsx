@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins, Pencil, Plus, ShieldCheck, Search, MessageSquare } from "lucide-react";
+import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins, Pencil, Plus, ShieldCheck, Search, MessageSquare, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getReport, resetRevenue, listProductsAll, upsertProduct, deleteProduct, listPosTables, addPosTable, deletePosTable, getPosSettings, setCashierAddProductEnabled, getAdminPermissions, sendCashierMessage, listCustomerFeedback, setCashierWhatsappNumber, listCashierMessageReplies } from "@/lib/pos.functions";
@@ -71,6 +71,54 @@ function Report() {
   const revenue = orders.reduce((s, o) => s + o.total, 0);
   const cost = orders.reduce((s, o) => s + o.cost_total, 0);
 
+  function downloadPdf() {
+    const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[char] || char));
+    const rows = orders.map((o) => {
+      const profit = o.total - o.cost_total;
+      return `<tr>
+        <td>${escape(String(o.order_no))}</td>
+        <td>${escape(new Date(o.confirmed_at!).toLocaleString("id-ID"))}</td>
+        <td>${o.source === "pos" ? "Kasir" : "Meja " + escape(String(o.table_no))}</td>
+        <td>${escape(o.payment_method.toUpperCase())}</td>
+        <td class="num">${escape(rp(o.total))}</td>
+        <td class="num">${escape(rp(o.cost_total))}</td>
+        <td class="num">${escape(rp(profit))}</td>
+      </tr>`;
+    }).join("");
+    const w = window.open("", "_blank", "width=1000,height=750");
+    if (!w) {
+      toast.error("Izinkan pop-up browser untuk menyimpan laporan sebagai PDF.");
+      return;
+    }
+    w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8">
+      <title>Laporan Laba Rugi Warmah Kediri</title>
+      <style>
+        body{font:12px Arial,sans-serif;color:#111;padding:28px}
+        h1{margin:0 0 6px;font-size:22px}.muted{color:#555}
+        .summary{display:flex;flex-wrap:wrap;gap:22px;margin:18px 0;padding:14px;background:#f2f2f2}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th,td{border:1px solid #ddd;padding:8px;text-align:left}
+        th{background:#eee}.num{text-align:right;white-space:nowrap}
+        tfoot td{font-weight:bold;background:#f7f7f7}
+        @media print{body{padding:0}@page{size:landscape;margin:12mm}}
+      </style></head><body>
+      <h1>Warmah Kediri — Laporan Laba/Rugi</h1>
+      <p class="muted">Periode ${escape(from)} sampai ${escape(to)} · Dicetak ${escape(new Date().toLocaleString("id-ID"))}</p>
+      <div class="summary">
+        <span>Pendapatan: <b>${escape(rp(revenue))}</b></span>
+        <span>Modal (HPP): <b>${escape(rp(cost))}</b></span>
+        <span>${revenue - cost >= 0 ? "Laba" : "Rugi"}: <b>${escape(rp(revenue - cost))}</b></span>
+        <span>Transaksi: <b>${orders.length}</b></span>
+      </div>
+      <table><thead><tr><th>No. transaksi</th><th>Waktu</th><th>Sumber</th><th>Pembayaran</th><th class="num">Pendapatan</th><th class="num">HPP</th><th class="num">Laba/Rugi</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="7">Tidak ada transaksi pada periode ini.</td></tr>'}</tbody>
+      <tfoot><tr><td colspan="4">TOTAL</td><td class="num">${escape(rp(revenue))}</td><td class="num">${escape(rp(cost))}</td><td class="num">${escape(rp(revenue - cost))}</td></tr></tfoot></table>
+      <script>window.onload=()=>window.print()<\/script></body></html>`);
+    w.document.close();
+  }
+
   async function doReset(all: boolean) {
     try {
       await reset({ data: all ? {} : range });
@@ -85,6 +133,7 @@ function Report() {
         <label className="text-sm">Dari<Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label className="text-sm">Sampai<Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         <Button variant="secondary" onClick={() => { setFrom(today()); setTo(today()); }}>Hari ini</Button>
+        <Button variant="outline" disabled={isLoading} onClick={downloadPdf}><Download className="mr-2 h-4 w-4" />Download PDF</Button>
         <div className="grid grid-cols-1 gap-2 sm:ml-auto sm:flex sm:flex-wrap">
           <ConfirmReset label="Hapus periode ini" desc={`Semua transaksi ${from} s/d ${to} akan dihapus permanen.`} onOk={() => doReset(false)} />
           <ConfirmReset label="Reset semua" desc="SELURUH data pendapatan & laba akan dihapus permanen." onOk={() => doReset(true)} />
