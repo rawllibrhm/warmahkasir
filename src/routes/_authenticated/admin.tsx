@@ -48,7 +48,7 @@ function AdminPage() {
         <Button variant="outline" size="sm" className="rounded-xl" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
       </header>
       <Tabs defaultValue="laba" className="dashboard-content px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="h-11 w-fit rounded-xl bg-secondary p-1"><TabsTrigger className="rounded-lg px-4" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="produk">Produk</TabsTrigger><TabsTrigger className="rounded-lg px-4" value="qr">Meja & QR</TabsTrigger>{permissions?.isSuperAdmin && <TabsTrigger className="rounded-lg px-4" value="superadmin">Super Admin</TabsTrigger>}</TabsList></div>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-secondary p-1 sm:w-fit"><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="produk">Produk</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="qr">Meja & QR</TabsTrigger>{permissions?.isSuperAdmin && <TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="superadmin">Super Admin</TabsTrigger>}</TabsList></div>
         <TabsContent value="laba"><Report /></TabsContent>
         <TabsContent value="produk"><Products /></TabsContent>
         <TabsContent value="qr"><TableQr /></TabsContent>
@@ -80,11 +80,11 @@ function Report() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4">
+      <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-end sm:p-4">
         <label className="text-sm">Dari<Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label className="text-sm">Sampai<Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         <Button variant="secondary" onClick={() => { setFrom(today()); setTo(today()); }}>Hari ini</Button>
-        <div className="ml-auto flex gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:ml-auto sm:flex sm:flex-wrap">
           <ConfirmReset label="Hapus periode ini" desc={`Semua transaksi ${from} s/d ${to} akan dihapus permanen.`} onOk={() => doReset(false)} />
           <ConfirmReset label="Reset semua" desc="SELURUH data pendapatan & laba akan dihapus permanen." onOk={() => doReset(true)} />
         </div>
@@ -95,7 +95,19 @@ function Report() {
         <Stat icon={TrendingUp} label={revenue - cost >= 0 ? "Laba" : "Rugi"} value={rp(revenue - cost)} accent />
         <Stat icon={Receipt} label="Transaksi" value={String(orders.length)} />
       </div>
-      <div className="table-wrap overflow-x-auto">
+      <div className="space-y-3 sm:hidden">
+        {isLoading && <p className="rounded-xl border p-4 text-sm text-muted-foreground">Memuat transaksi…</p>}
+        {!isLoading && !orders.length && <p className="rounded-xl border p-5 text-center text-sm text-muted-foreground">Tidak ada transaksi.</p>}
+        {orders.map((o) => (
+          <article key={o.id} className="space-y-2 rounded-xl border bg-card p-4">
+            <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">Transaksi #{o.order_no}</p><p className="text-xs text-muted-foreground">{new Date(o.confirmed_at!).toLocaleString("id-ID")}</p></div><span className="rounded-full bg-secondary px-2 py-1 text-xs">{o.source === "pos" ? "Kasir" : `Meja ${o.table_no}`}</span></div>
+            <div className="flex items-center justify-between gap-3 text-sm"><span className="text-muted-foreground">Pembayaran</span><span className="uppercase">{o.payment_method}</span></div>
+            <div className="flex items-center justify-between gap-3 text-sm"><span className="text-muted-foreground">Total</span><strong>{rp(o.total)}</strong></div>
+            <div className="flex items-center justify-between gap-3 border-t pt-2 text-sm"><span className="text-muted-foreground">Laba</span><strong>{rp(o.total - o.cost_total)}</strong></div>
+          </article>
+        ))}
+      </div>
+      <div className="table-wrap hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead className="bg-secondary text-left"><tr><th className="p-3">#</th><th>Waktu</th><th>Sumber</th><th>Bayar</th><th className="text-right">Total</th><th className="pr-3 text-right">Laba</th></tr></thead>
           <tbody>
@@ -151,6 +163,7 @@ function Products() {
   const [editId, setEditId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const remove = useServerFn(deleteProduct);
+  const filteredProducts = products.filter((p) => [p.name, p.category, p.barcode ?? ""].some((v) => v.toLowerCase().includes(search.toLowerCase().trim())));
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -179,21 +192,35 @@ function Products() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={add} className="grid gap-2 rounded-xl border bg-card p-4 sm:grid-cols-3 lg:grid-cols-7">
+      <form onSubmit={add} className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4 xl:grid-cols-7">
         <Input placeholder="Nama" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
         <Input placeholder="Barcode" value={f.barcode} onChange={(e) => setF({ ...f, barcode: e.target.value })} />
         <Input placeholder="Kategori" required value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} />
         <Input placeholder="Harga jual" type="number" required value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
         <Input placeholder="Modal" type="number" required value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} />
         <Input placeholder="Stok" type="number" required value={f.stock} onChange={(e) => setF({ ...f, stock: e.target.value })} />
-        <Button>{editId ? "Simpan perubahan" : "Tambah produk"}</Button>
-        {editId && <Button type="button" variant="outline" onClick={() => { setF(empty); setEditId(null); }}>Batal edit</Button>}
+        <Button className="h-11 w-full">{editId ? "Simpan perubahan" : "Tambah produk"}</Button>
+        {editId && <Button className="h-11 w-full" type="button" variant="outline" onClick={() => { setF(empty); setEditId(null); }}>Batal edit</Button>}
       </form>
       <div className="flex items-center gap-2 rounded-xl border bg-card p-3"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Cari menu berdasarkan nama, kategori, atau barcode…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
-      <div className="overflow-x-auto rounded-xl border bg-card">
+      <div className="space-y-3 sm:hidden">
+        {filteredProducts.map((p) => (
+          <article key={p.id} className={`min-w-0 space-y-3 rounded-2xl border bg-card p-4 ${p.active ? "" : "opacity-60"}`}>
+            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="break-words font-semibold">{p.name}</h3><p className="break-all text-xs text-muted-foreground">{p.category} · {p.barcode || "Tanpa barcode"}</p></div><span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-xs">Stok {p.stock}</span></div>
+            <div className="grid grid-cols-2 gap-3"><div><p className="text-xs text-muted-foreground">Harga jual</p><p className="break-words font-semibold">{rp(p.price)}</p></div><div><p className="text-xs text-muted-foreground">Modal</p><p className="break-words font-semibold">{rp(p.cost)}</p></div></div>
+            <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-3">
+              <Button className="h-10 w-full" variant="outline" onClick={() => edit(p)}><Pencil className="mr-1 h-3 w-3" />Edit</Button>
+              <Button className="h-10 w-full" variant="outline" onClick={() => toggle(p)}>{p.active ? "Sembunyikan" : "Tampilkan"}</Button>
+              <Button className="h-10 w-full" variant="destructive" disabled={!p.active} onClick={() => removeProduct(p.id, p.name)}><Trash2 className="mr-1 h-3 w-3" />Hapus</Button>
+            </div>
+          </article>
+        ))}
+        {!filteredProducts.length && <p className="rounded-xl border p-6 text-center text-sm text-muted-foreground">Produk tidak ditemukan.</p>}
+      </div>
+      <div className="hidden overflow-x-auto rounded-xl border bg-card sm:block">
         <table className="w-full text-sm">
           <thead className="bg-secondary text-left"><tr><th className="p-3">Nama</th><th>Kategori</th><th>Harga</th><th>Modal</th><th>Stok</th><th /></tr></thead>
-          <tbody>{products.filter((p) => [p.name, p.category, p.barcode ?? ""].some((v) => v.toLowerCase().includes(search.toLowerCase()))).map((p) => (
+          <tbody>{filteredProducts.map((p) => (
             <tr key={p.id} className={`border-t ${p.active ? "" : "opacity-50"}`}>
               <td className="p-3">{p.name}</td><td>{p.category}</td><td>{rp(p.price)}</td><td>{rp(p.cost)}</td><td>{p.stock}</td>
               <td className="pr-3 text-right"><div className="flex justify-end gap-1"><Button size="sm" variant="outline" onClick={() => edit(p)}><Pencil className="mr-1 h-3 w-3" />Edit</Button><Button size="sm" variant="outline" onClick={() => toggle(p)}>{p.active ? "Sembunyikan" : "Tampilkan"}</Button><Button size="sm" variant="destructive" disabled={!p.active} onClick={() => removeProduct(p.id, p.name)}><Trash2 className="mr-1 h-3 w-3" />Hapus</Button></div></td>
@@ -237,17 +264,17 @@ function TableQr() {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return (
     <div className="space-y-4">
-      <form onSubmit={createTable} className="flex flex-wrap items-end gap-2 rounded-xl border bg-card p-4">
+      <form onSubmit={createTable} className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-end sm:p-4">
         <label className="min-w-48 flex-1 text-sm">Nomor / kode meja<Input value={tableNo} onChange={(e) => setTableNo(e.target.value)} placeholder="Contoh: 11 atau VIP-A" required maxLength={10} /></label>
-        <Button type="submit"><Plus className="mr-1 h-4 w-4" />Tambah meja</Button>
-        <Button type="button" variant="outline" onClick={() => window.print()}>Cetak QR</Button>
+        <Button className="h-11 w-full sm:w-auto" type="submit"><Plus className="mr-1 h-4 w-4" />Tambah meja</Button>
+        <Button className="h-11 w-full sm:w-auto" type="button" variant="outline" onClick={() => window.print()}>Cetak QR</Button>
       </form>
       <p className="text-sm text-muted-foreground">Meja yang dihapus tidak bisa menerima pesanan baru dari QR. Meja dengan pesanan aktif harus diselesaikan terlebih dahulu.</p>
       {isLoading ? <p className="p-4 text-muted-foreground">Memuat daftar meja…</p> : !tables.length ? <p className="rounded-xl border p-8 text-center text-muted-foreground">Belum ada meja aktif.</p> : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
           {[...tables].sort((a, b) => a.table_no.localeCompare(b.table_no, "id", { numeric: true })).map(({ table_no: no }) => (
-            <div key={no} className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4">
-              <QRCodeSVG value={`${origin}/meja/${encodeURIComponent(no)}`} size={130} />
+            <div key={no} className="flex min-w-0 flex-col items-center gap-3 rounded-xl border bg-card p-4">
+              <QRCodeSVG value={`${origin}/meja/${encodeURIComponent(no)}`} size={130} className="h-auto max-w-full" />
               <p className="font-display text-lg font-bold">Meja {no}</p>
               <Button variant="destructive" size="sm" className="print:hidden" onClick={() => remove(no)}><Trash2 className="mr-1 h-3 w-3" />Hapus meja</Button>
             </div>
@@ -274,15 +301,15 @@ function SuperAdminPanel() {
 
   return (
     <div className="max-w-3xl space-y-4">
-      <div className="rounded-2xl border bg-card p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <span className="rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></span>
+      <div className="rounded-2xl border bg-card p-4 sm:p-6">
+        <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-start">
+          <span className="w-fit shrink-0 rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></span>
           <div className="flex-1">
             <h2 className="font-display text-xl font-bold">Kontrol akses kasir</h2>
             <p className="mt-1 text-sm text-muted-foreground">Atur apakah akun dengan hak akses kasir boleh membuat barang baru langsung dari halaman POS. Perubahan ini diperiksa kembali di backend.</p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <span className={settings?.cashierCanAddProducts ? "rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary" : "rounded-full bg-secondary px-3 py-1 text-sm font-semibold"}>{isLoading ? "Memuat…" : settings?.cashierCanAddProducts ? "Fitur aktif" : "Fitur nonaktif"}</span>
-              <Button disabled={isLoading || !settings} variant={settings?.cashierCanAddProducts ? "destructive" : "default"} onClick={() => toggle(!settings?.cashierCanAddProducts)}>{settings?.cashierCanAddProducts ? "Matikan tambah barang di kasir" : "Aktifkan tambah barang di kasir"}</Button>
+              <Button className="h-auto min-h-11 w-full whitespace-normal py-3 sm:w-auto" disabled={isLoading || !settings} variant={settings?.cashierCanAddProducts ? "destructive" : "default"} onClick={() => toggle(!settings?.cashierCanAddProducts)}>{settings?.cashierCanAddProducts ? "Matikan tambah barang di kasir" : "Aktifkan tambah barang di kasir"}</Button>
             </div>
           </div>
         </div>
