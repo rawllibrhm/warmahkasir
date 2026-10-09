@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2, Search, PackagePlus, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, getPosSettings, createCashierProduct, listCashierMessages, listCashierHistory, acknowledgeCashierMessage } from "@/lib/pos.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +151,7 @@ function CashierHistory() {
   const range = { from: new Date(`${from}T00:00:00`).toISOString(), to: new Date(`${to}T23:59:59`).toISOString() };
   const { data: orders = [], isLoading, isError, error } = useQuery({
     queryKey: ["cashier-history", from, to],
-    queryFn: () => fetchHistory({ data: range }),
+    queryFn: async () => { const { data: sessionData, error: sessionError } = await supabase.auth.getSession(); const token = sessionData.session?.access_token; if (sessionError || !token) throw new Error("Sesi login berakhir. Silakan login ulang."); return fetchHistory({ data: { ...range, accessToken: token } }); },
   });
   const revenue = orders.reduce((sum, order) => sum + order.total, 0);
   const itemsCount = orders.reduce((sum, order) => sum + order.order_items.reduce((n, item) => n + item.qty, 0), 0);
