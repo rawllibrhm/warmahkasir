@@ -453,42 +453,35 @@ export const submitCustomerFeedback = createServerFn({ method: "POST" })
 
 
 export const getCashierHistorySecure = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({
-    from: z.string().datetime(),
-    to: z.string().datetime(),
-    accessToken: z.string().min(20).max(5000),
-  }).parse(d))
-  .handler(async ({ data }) => {
-    // TanStack Server Functions do not automatically forward the Supabase
-    // browser session as an Authorization header. Validate the session token
-    // explicitly here rather than treating a missing header as an auth failure.
-    const { createClient } = await import("@supabase/supabase-js");
-    const url = process.env["SUPABASE_URL"];
-    const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
-    if (!url || !key) throw new Error("Konfigurasi autentikasi belum lengkap.");
-    const authClient = createClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(data.accessToken);
-    const claims = claimsData?.claims;
-    const userId = typeof claims?.sub === "string" ? claims.sub : "";
-    if (claimsError || !userId) throw new Error("Sesi login tidak valid. Silakan login ulang.");
-    const email = String(claims?.email ?? "").toLowerCase();
+  .inputValidator((d) => z.object({}).parse(d))
+  .handler(async () => {
+    // Public cashier dashboard intentionally exposes only today's aggregate totals,
+    // never individual orders, payment methods, or customer/order details.
     const db = await admin();
-    if (email !== "warmah@kediri.com") {
-      const { data: roles, error: rolesError } = await db.from("user_roles")
-        .select("role").eq("user_id", userId).in("role", ["kasir", "admin", "super_admin"]);
-      if (rolesError) throw new Error("Gagal memeriksa izin akun.");
-      if (!roles?.length) throw new Error("Akun tidak memiliki akses kasir.");
-    }
+    const date = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const [year, month, day] = date.split("-").map(Number);
+    const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
+    const nextDate = `${nextDay.getUTCFullYear()}-${String(nextDay.getUTCMonth() + 1).padStart(2, "0")}-${String(nextDay.getUTCDate()).padStart(2, "0")}`;
+    const start = `${date}T00:00:00+07:00`;
+    const end = `${nextDate}T00:00:00+07:00`;
     const { data: orders, error } = await db.from("orders")
-      .select("id,order_no,source,table_no,payment_method,total,status,created_at,confirmed_at,order_items(name,qty,price)")
+      .select("id,total")
       .eq("status", "dikonfirmasi")
-      .gte("confirmed_at", data.from)
-      .lte("confirmed_at", data.to)
-      .order("confirmed_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return orders ?? [];
+      .gte("confirmed_at", start)
+      .lt("confirmed_at", end)
+      .limit(5000);
+    if (error) throw new Error("Gagal memuat ringkasan penjualan hari ini.");
+    const rows = orders ?? [];
+    return {
+      date,
+      transactions: rows.length,
+      omzet: rows.reduce((sum, order) => sum + Number(order.total || 0), 0),
+    };
   });
 
 export const setCashierWhatsappNumber = createServerFn({ method: "POST" })
