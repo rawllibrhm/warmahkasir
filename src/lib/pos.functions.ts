@@ -361,9 +361,12 @@ export const deleteProduct = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const db = await admin();
-    // Soft-delete: preserve product references and historical receipts.
-    const { error } = await db.from("products").update({ active: false }).eq("id", data.id);
+    // Permanently remove the catalog entry. order_items keeps a snapshot of
+    // name, price, cost and quantity; its product_id FK uses ON DELETE SET NULL.
+    // Restock history is also preserved by the migration's ON DELETE SET NULL.
+    const { data: deleted, error } = await db.from("products").delete().eq("id", data.id).select("id").maybeSingle();
     if (error) throw new Error(error.message);
+    if (!deleted) throw new Error("Menu tidak ditemukan atau sudah dihapus");
     return { ok: true };
   });
 
