@@ -342,7 +342,7 @@ export const listPosTables = createServerFn({ method: "POST" }).handler(async ()
 
 export const addPosTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ table_no: z.string().trim().min(1).max(10).regex(/^[a-zA-Z0-9-]+$/) }).parse(d))
+  .inputValidator((d) => z.object({ table_no: z.string().trim().min(1).max(10).regex(/^[\p{L}\p{N} _./#-]+$/u, "Nomor meja hanya boleh berisi huruf, angka, spasi, titik, garis miring, #, atau tanda hubung") }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const db = await admin();
