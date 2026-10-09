@@ -205,6 +205,20 @@ export type Database = {
         Update: { id?: string; table_no?: string; customer_name?: string | null; kind?: string; message?: string; created_at?: string; status?: string }
         Relationships: []
       }
+      pos_message_replies: {
+        Row: { id: string; message_id: string; reply: string; created_at: string; replied_by: string | null }
+        Insert: { id?: string; message_id: string; reply?: string; created_at?: string; replied_by?: string | null }
+        Update: { id?: string; message_id?: string; reply?: string; created_at?: string; replied_by?: string | null }
+        Relationships: [
+          {
+            foreignKeyName: "pos_message_replies_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "pos_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
