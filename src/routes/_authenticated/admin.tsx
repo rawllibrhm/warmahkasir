@@ -72,9 +72,10 @@ function Report() {
   const cost = orders.reduce((s, o) => s + o.cost_total, 0);
 
   function downloadPdf() {
-    const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({
+    const htmlEntities: Record<string, string> = {
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    }[char] || char));
+    };
+    const escape = (value: string) => value.replace(/[&<>"']/g, (char) => htmlEntities[char] ?? char);
     const rows = orders.map((o) => {
       const profit = o.total - o.cost_total;
       return `<tr>
@@ -133,7 +134,7 @@ function Report() {
         <label className="text-sm">Dari<Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label className="text-sm">Sampai<Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         <Button variant="secondary" onClick={() => { setFrom(today()); setTo(today()); }}>Hari ini</Button>
-        <Button variant="outline" disabled={isLoading} onClick={downloadPdf}><Download className="mr-2 h-4 w-4" />Download PDF</Button>
+        <Button variant="outline" disabled={isLoading} onClick={downloadPdf}><Download className="mr-2 h-4 w-4" />Cetak / Simpan PDF</Button>
         <div className="grid grid-cols-1 gap-2 sm:ml-auto sm:flex sm:flex-wrap">
           <ConfirmReset label="Hapus periode ini" desc={`Semua transaksi ${from} s/d ${to} akan dihapus permanen.`} onOk={() => doReset(false)} />
           <ConfirmReset label="Reset semua" desc="SELURUH data pendapatan & laba akan dihapus permanen." onOk={() => doReset(true)} />
