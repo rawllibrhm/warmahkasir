@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2, Search, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, listCashierMessages, getCashierHistorySecure, acknowledgeCashierMessage } from "@/lib/pos.functions";
+import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, listCashierMessages, getCashierHistorySecure, getPosSettings, acknowledgeCashierMessage } from "@/lib/pos.functions";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,31 +139,56 @@ function KasirPage() {
 
 function CashierHistory() {
   const fetchHistory = useServerFn(getCashierHistorySecure);
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["cashier-history-today"],
-    queryFn: () => fetchHistory({ data: {} }),
+  const fetchSettings = useServerFn(getPosSettings);
+  const today = () => {
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+    return \`${part("year")}-${part("month")}-${part("day")}\`;
+  };
+  const [from, setFrom] = useState(today);
+  const [to, setTo] = useState(today);
+  const { data: settings } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), refetchInterval: 30000 });
+  const { data: orders = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ["cashier-history", from, to],
+    queryFn: () => fetchHistory({ data: { from, to } }),
+    enabled: !!from && !!to && from <= to,
     refetchInterval: 30000,
     retry: 1,
   });
-
-  return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <section className="rounded-2xl border bg-card p-5 sm:p-6">
-        <p className="text-sm font-medium text-muted-foreground">Penjualan hari ini</p>
-        {isLoading ? <p className="mt-2 text-2xl font-bold">Memuat…</p> : isError ? (
-          <div className="mt-2 space-y-2"><p className="text-sm text-destructive">Data belum dapat dimuat.</p><Button variant="outline" size="sm" onClick={() => refetch()}>Coba lagi</Button></div>
-        ) : <p className="mt-2 text-3xl font-extrabold">{data?.transactions ?? 0} transaksi</p>}
-        <p className="mt-1 text-xs text-muted-foreground">{data?.date ? new Date(data.date + "T12:00:00+07:00").toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Hari ini"}</p>
-      </section>
-      <section className="rounded-2xl border bg-card p-5 sm:p-6">
-        <p className="text-sm font-medium text-muted-foreground">Omzet hari ini</p>
-        {isLoading ? <p className="mt-2 text-2xl font-bold">Memuat…</p> : isError ? <p className="mt-2 text-sm text-muted-foreground">Belum tersedia</p> : <p className="mt-2 text-3xl font-extrabold">{rp(data?.omzet ?? 0)}</p>}
-        <p className="mt-1 text-xs text-muted-foreground">Dari transaksi yang sudah dikonfirmasi</p>
-      </section>
+  const revenue = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const itemsCount = orders.reduce((sum, order) => sum + (order.order_items ?? []).reduce((n, item) => n + Number(item.qty || 0), 0), 0);
+  const summary = "REKAP PENJUALAN WARMAH KEDIRI\nPeriode: " + from + " s/d " + to + "\nTransaksi: " + orders.length + "\nJumlah item: " + itemsCount + "\nTotal penjualan: " + rp(revenue) + "\n\n" + orders.map(o => "#" + o.order_no + " | " + new Date(o.confirmed_at || o.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) + " | " + (o.source === "pos" ? "Kasir" : "Meja " + (o.table_no ?? "-")) + " | " + String(o.payment_method || "").toUpperCase() + "\n" + (o.order_items ?? []).map(i => i.qty + "x " + i.name + " - " + rp(i.qty * i.price)).join("\n") + "\nTotal: " + rp(o.total)).join("\n\n");
+  function printPdf() {
+    const escape = (v: string) => v.replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c] || c));
+    const rows = orders.map(o => '<section class="order"><h3>Transaksi #' + escape(String(o.order_no)) + ' — ' + escape(new Date(o.confirmed_at || o.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })) + '</h3><p>' + (o.source === "pos" ? "Kasir" : "Meja " + escape(String(o.table_no ?? "-"))) + ' · ' + escape(String(o.payment_method || "").toUpperCase()) + '</p><table><tbody>' + (o.order_items ?? []).map(i => '<tr><td>' + i.qty + ' × ' + escape(i.name) + '</td><td>' + escape(rp(i.qty * i.price)) + '</td></tr>').join("") + '</tbody></table><strong>Total: ' + escape(rp(o.total)) + '</strong></section>').join("");
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (!w) { toast.error("Izinkan pop-up browser untuk membuat PDF."); return; }
+    w.document.write('<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Rekap Warmah Kediri</title><style>body{font:14px Arial,sans-serif;color:#111;padding:28px}h1{margin-bottom:4px}.muted{color:#555}.summary{display:flex;flex-wrap:wrap;gap:24px;margin:20px 0;padding:12px;background:#f2f2f2}.order{page-break-inside:avoid;border-top:1px solid #ccc;padding:12px 0}table{width:100%;border-collapse:collapse;margin:8px 0}td{padding:4px;border-bottom:1px solid #eee}td:last-child{text-align:right}</style></head><body><h1>Warmah Kediri — Rekap Penjualan</h1><p class="muted">Periode ' + escape(from) + ' sampai ' + escape(to) + ' · Dicetak ' + escape(new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })) + '</p><div class="summary"><span>Transaksi: <b>' + orders.length + '</b></span><span>Jumlah item: <b>' + itemsCount + '</b></span><span>Total penjualan: <b>' + escape(rp(revenue)) + '</b></span></div>' + (rows || "<p>Tidak ada transaksi.</p>") + '<script>window.onload=()=>window.print()<\/script></body></html>');
+    w.document.close();
+  }
+  function sendWhatsApp() {
+    const phone = String(settings?.whatsappNumber || "").replace(/\D/g, "");
+    if (!phone) { toast.error("Atur nomor WhatsApp di panel Admin terlebih dahulu."); return; }
+    window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(summary + "\n\nCatatan: PDF belum terlampir otomatis. Simpan PDF dari tombol Cetak / Simpan PDF, lalu lampirkan di WhatsApp."), "_blank", "noopener,noreferrer");
+  }
+  return <div className="space-y-4">
+    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-end">
+      <label className="text-sm">Dari tanggal<Input type="date" value={from} max={to || undefined} onChange={e=>setFrom(e.target.value)} /></label>
+      <label className="text-sm">Sampai tanggal<Input type="date" value={to} min={from || undefined} max={today()} onChange={e=>setTo(e.target.value)} /></label>
+      <Button variant="outline" onClick={printPdf} disabled={isLoading || isError}>Cetak / Simpan PDF</Button>
+      <Button onClick={sendWhatsApp} disabled={isLoading || isError}>Siapkan WhatsApp</Button>
     </div>
-  );
+    <div className="grid gap-3 sm:grid-cols-3">
+      <div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Total penjualan</p><p className="text-xl font-bold">{isLoading ? "Memuat…" : rp(revenue)}</p></div>
+      <div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Transaksi</p><p className="text-xl font-bold">{isLoading ? "Memuat…" : orders.length}</p></div>
+      <div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Jumlah item terjual</p><p className="text-xl font-bold">{isLoading ? "Memuat…" : itemsCount}</p></div>
+    </div>
+    {isLoading && <p className="p-4 text-muted-foreground">Memuat riwayat…</p>}
+    {isError && <div role="alert" className="space-y-3 rounded-xl border border-destructive/40 p-4 text-sm"><p>Riwayat gagal dimuat. Coba muat ulang.</p><Button type="button" variant="outline" onClick={() => refetch()}>Coba muat ulang</Button></div>}
+    {!isLoading && !isError && !orders.length && <p className="rounded-xl border p-6 text-center text-muted-foreground">Tidak ada transaksi pada tanggal ini.</p>}
+    <div className="space-y-3">{orders.map(o=><article key={o.id} className="space-y-2 rounded-xl border bg-card p-4"><div className="flex flex-wrap justify-between gap-2"><div><p className="font-semibold">Transaksi #{o.order_no}</p><p className="text-xs text-muted-foreground">{new Date(o.confirmed_at || o.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}</p></div><span className="rounded-full bg-secondary px-2 py-1 text-xs">{o.source === "pos" ? "Kasir" : "Meja " + (o.table_no ?? "-")}</span></div><div className="space-y-1 text-sm">{(o.order_items ?? []).map((item,i)=><div key={i} className="flex justify-between gap-3"><span>{item.qty}× {item.name}</span><span>{rp(item.qty*item.price)}</span></div>)}</div><div className="flex justify-between border-t pt-2"><span className="text-sm text-muted-foreground">{String(o.payment_method || "").toUpperCase()}</span><strong>{rp(o.total)}</strong></div></article>)}</div>
+  </div>;
 }
-
 function LiveOrders({ live }: { live: Live[] }) {
   const qc = useQueryClient();
   const confirm = useServerFn(confirmOrder);
