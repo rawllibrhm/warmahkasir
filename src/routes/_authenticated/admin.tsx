@@ -414,15 +414,16 @@ function CashierMessagePanel() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const fetchReplies = useServerFn(listCashierMessageReplies);
-  const { data: replies = [] } = useQuery({ queryKey: ["cashier-message-replies"], queryFn: () => fetchReplies(), refetchInterval: 5000 });
+  const { data: replies = [], isLoading: repliesLoading } = useQuery({ queryKey: ["cashier-message-replies"], queryFn: () => fetchReplies(), refetchInterval: 5000 });
   const seenReplies = useRef<Set<string> | null>(null);
   useEffect(() => {
+    if (repliesLoading) return;
     const ids = new Set(replies.map(r => r.id));
     if (seenReplies.current === null) { seenReplies.current = ids; return; }
     const fresh = replies.filter(r => !seenReplies.current!.has(r.id));
     seenReplies.current = ids;
     if (fresh.length) toast.success("Kasir membalas: Oke", { description: fresh.map(r => r.replied_by || "Kasir").join(", ") });
-  }, [replies]);
+  }, [replies, repliesLoading]);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
