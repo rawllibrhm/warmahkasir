@@ -191,7 +191,7 @@ function Pos() {
   const checkout = useServerFn(posCheckout);
   const createProduct = useServerFn(createCashierProduct);
   const fetchSettings = useServerFn(getPosSettings);
-  const { data: posSettings } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings() });
+  const { data: posSettings, isError: settingsError, error: settingsErrorDetail } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), refetchInterval: 5000, retry: 1 });
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: "", barcode: "", category: "Makanan", price: "", cost: "", stock: "" });
   const [q, setQ] = useState("");
@@ -236,6 +236,7 @@ function Pos() {
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_390px] sm:gap-5">
       <div className="space-y-3">
+        {settingsError && <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"><p className="font-semibold text-destructive">Pengaturan tambah barang tidak dapat dimuat.</p><p className="mt-1 break-words text-muted-foreground">{settingsErrorDetail instanceof Error ? settingsErrorDetail.message : "Periksa migrasi database Supabase."}</p></div>}
         <div className="flex flex-col gap-2 sm:flex-row">
           <form onSubmit={onScan} className="relative min-w-0 flex-1">
             <ScanBarcode className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
