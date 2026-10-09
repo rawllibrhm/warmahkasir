@@ -120,7 +120,7 @@ function MenuPage() {
         </div>
       )}
 
-      <a href="https://wa.me/6285142274765?text=Halo%20Warmah%20Kediri%2C%20saya%20pelanggan%20meja%20${encodeURIComponent(no)}" target="_blank" rel="noreferrer" aria-label="Hubungi Warmah Kediri melalui WhatsApp" className="fixed bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105">
+      <a href={`https://wa.me/6285142274765?text=${encodeURIComponent(`Halo Warmah Kediri, saya pelanggan meja ${no}`)}`} target="_blank" rel="noreferrer" aria-label="Hubungi Warmah Kediri melalui WhatsApp" className="fixed bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105">
         <MessageCircle className="h-6 w-6" />
       </a>
 
