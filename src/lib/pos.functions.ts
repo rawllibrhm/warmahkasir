@@ -361,3 +361,13 @@ export const deleteProduct = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const getAdminPermissions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [adminRole, superRole] = await Promise.all([
+      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
+      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" }),
+    ]);
+    return { isAdmin: adminRole.data === true || superRole.data === true, isSuperAdmin: superRole.data === true };
+  });
