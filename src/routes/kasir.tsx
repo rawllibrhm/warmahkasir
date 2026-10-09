@@ -189,11 +189,6 @@ function Pos() {
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
   const checkout = useServerFn(posCheckout);
-  const createProduct = useServerFn(createCashierProduct);
-  const fetchSettings = useServerFn(getPosSettings);
-  const { data: posSettings, isError: settingsError, error: settingsErrorDetail } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), refetchInterval: 5000, retry: 1 });
-  const [newProductOpen, setNewProductOpen] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: "", barcode: "", category: "Makanan", price: "", cost: "", stock: "" });
   const [q, setQ] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cash, setCash] = useState("");
@@ -211,17 +206,6 @@ function Pos() {
     if (hit) { add(hit.id, 1); setQ(""); } else if (filtered.length === 1) { add(filtered[0]!.id, 1); setQ(""); }
   }
 
-  async function saveNewProduct(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await createProduct({ data: { name: newProduct.name, ...(newProduct.barcode ? { barcode: newProduct.barcode } : {}), category: newProduct.category, price: Number(newProduct.price), cost: Number(newProduct.cost), stock: Number(newProduct.stock) } });
-      toast.success("Barang baru berhasil ditambahkan");
-      setNewProduct({ name: "", barcode: "", category: "Makanan", price: "", cost: "", stock: "" });
-      setNewProductOpen(false);
-      await qc.invalidateQueries({ queryKey: ["products-all"] });
-    } catch (e) { toast.error((e as Error).message); }
-  }
-
   async function pay() {
     try {
       const r = await checkout({ data: { items: lines.map((l) => ({ product_id: l.id, qty: l.qty })), payment_method: method, cash_received: c } });
@@ -236,26 +220,12 @@ function Pos() {
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_390px] sm:gap-5">
       <div className="space-y-3">
-        {settingsError && <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"><p className="font-semibold text-destructive">Pengaturan tambah barang tidak dapat dimuat.</p><p className="mt-1 break-words text-muted-foreground">{settingsErrorDetail instanceof Error ? settingsErrorDetail.message : "Periksa migrasi database Supabase."}</p></div>}
         <div className="flex flex-col gap-2 sm:flex-row">
           <form onSubmit={onScan} className="relative min-w-0 flex-1">
             <ScanBarcode className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
             <Input autoFocus className="h-11 pl-10" placeholder="Cari nama atau scan barcode lalu Enter" value={q} onChange={(e) => setQ(e.target.value)} />
           </form>
-          {posSettings?.cashierCanAddProducts && <Button type="button" className="h-11 shrink-0" onClick={() => setNewProductOpen((v) => !v)}><PackagePlus className="mr-2 h-4 w-4" />Tambah barang</Button>}
         </div>
-        {newProductOpen && posSettings?.cashierCanAddProducts && (
-          <form onSubmit={saveNewProduct} className="grid gap-2 rounded-xl border border-primary/30 bg-card p-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="sm:col-span-2 xl:col-span-3"><p className="font-semibold">Barang baru</p><p className="text-xs text-muted-foreground">Fitur ini diaktifkan oleh Super Admin.</p></div>
-            <Input placeholder="Nama barang" required maxLength={80} value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
-            <Input placeholder="Barcode (opsional)" maxLength={40} value={newProduct.barcode} onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })} />
-            <Input placeholder="Kategori" required maxLength={30} value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} />
-            <Input placeholder="Harga jual (Rp)" type="number" min="0" required value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} />
-            <Input placeholder="Modal (Rp)" type="number" min="0" required value={newProduct.cost} onChange={(e) => setNewProduct({ ...newProduct, cost: e.target.value })} />
-            <Input placeholder="Stok awal" type="number" min="0" required value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} />
-            <div className="flex gap-2 sm:col-span-2 xl:col-span-3"><Button type="submit">Simpan barang</Button><Button type="button" variant="outline" onClick={() => setNewProductOpen(false)}>Batal</Button></div>
-          </form>
-        )}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
           {filtered.map((p) => (
             <button key={p.id} onClick={() => add(p.id, 1)} disabled={p.stock <= (cart[p.id] ?? 0)} className="min-w-0 break-words rounded-xl border bg-card p-3 text-left transition hover:border-primary disabled:opacity-40 sm:p-4">
@@ -301,9 +271,25 @@ function Restock() {
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
   const restock = useServerFn(restockProduct);
+  const createProduct = useServerFn(createCashierProduct);
+  const fetchSettings = useServerFn(getPosSettings);
+  const { data: posSettings, isError: settingsError, error: settingsErrorDetail } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), refetchInterval: 5000, retry: 1 });
+  const [newProductOpen, setNewProductOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: "", barcode: "", category: "Makanan", price: "", cost: "", stock: "" });
   const [search, setSearch] = useState("");
   const [vals, setVals] = useState<Record<string, { qty: string; cost: string }>>({});
   const filteredProducts = products.filter((p) => [p.name, p.category, p.barcode ?? ""].some((v) => v.toLowerCase().includes(search.trim().toLowerCase())));
+
+  async function saveNewProduct(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await createProduct({ data: { name: newProduct.name.trim(), ...(newProduct.barcode.trim() ? { barcode: newProduct.barcode.trim() } : {}), category: newProduct.category.trim(), price: Number(newProduct.price), cost: Number(newProduct.cost), stock: Number(newProduct.stock) } });
+      toast.success("Barang baru berhasil ditambahkan");
+      setNewProduct({ name: "", barcode: "", category: "Makanan", price: "", cost: "", stock: "" });
+      setNewProductOpen(false);
+      await qc.invalidateQueries({ queryKey: ["products-all"] });
+    } catch (e) { toast.error((e as Error).message); }
+  }
 
   async function save(id: string) {
     const v = vals[id];
@@ -318,7 +304,20 @@ function Restock() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {settingsError && <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"><p className="font-semibold text-destructive">Pengaturan tambah barang tidak dapat dimuat.</p><p className="mt-1 break-words text-muted-foreground">{settingsErrorDetail instanceof Error ? settingsErrorDetail.message : "Periksa migrasi database Supabase."}</p></div>}
+      {posSettings?.cashierCanAddProducts && <section className="space-y-3 rounded-2xl border border-primary/30 bg-card p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-display text-lg font-bold">Tambah Barang Baru</h2><p className="text-sm text-muted-foreground">Masukkan produk baru beserta harga dan stok awal.</p></div><Button type="button" className="h-11 w-full sm:w-auto" onClick={() => setNewProductOpen((v) => !v)}><PackagePlus className="mr-2 h-4 w-4" />{newProductOpen ? "Tutup formulir" : "Tambah barang"}</Button></div>
+        {newProductOpen && <form onSubmit={saveNewProduct} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <Input placeholder="Nama barang" required maxLength={80} value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
+          <Input placeholder="Barcode (opsional)" maxLength={40} value={newProduct.barcode} onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })} />
+          <Input placeholder="Kategori" required maxLength={30} value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} />
+          <Input placeholder="Harga jual (Rp)" type="number" min="0" required value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} />
+          <Input placeholder="Modal (Rp)" type="number" min="0" required value={newProduct.cost} onChange={(e) => setNewProduct({ ...newProduct, cost: e.target.value })} />
+          <Input placeholder="Stok awal" type="number" min="0" required value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} />
+          <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-3"><Button type="submit">Simpan barang</Button><Button type="button" variant="outline" onClick={() => setNewProductOpen(false)}>Batal</Button></div>
+        </form>}
+      </section>}
       <div className="flex items-center gap-2 rounded-xl border bg-card p-3"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Cari barang restock berdasarkan nama, kategori, atau barcode…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
       <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
         <table className="w-full text-sm">
