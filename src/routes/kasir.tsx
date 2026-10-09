@@ -149,9 +149,23 @@ function CashierHistory() {
   const [to, setTo] = useState(today);
   const { data: settings } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), refetchInterval: 15000 });
   const range = { from: new Date(`${from}T00:00:00`).toISOString(), to: new Date(`${to}T23:59:59`).toISOString() };
-  const { data: orders = [], isLoading, isError, error } = useQuery({
+  const { data: orders = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["cashier-history", from, to],
-    queryFn: async () => { const { data: sessionData, error: sessionError } = await supabase.auth.getSession(); const token = sessionData.session?.access_token; if (sessionError || !token) throw new Error("Sesi login berakhir. Silakan login ulang."); return fetchHistory({ data: { ...range, accessToken: token } }); },
+    queryFn: async () => {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw new Error("Gagal membaca sesi login. Silakan muat ulang halaman.");
+      let session = sessionData.session;
+      // Refresh a near-expired access token before asking the server to validate it.
+      if (!session || (session.expires_at && session.expires_at <= Math.floor(Date.now() / 1000) + 30)) {
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) throw new Error("Sesi login berakhir. Silakan masuk kembali.");
+        session = refreshed.session;
+      }
+      const token = session?.access_token;
+      if (!token) throw new Error("Sesi login berakhir. Silakan masuk kembali.");
+      return fetchHistory({ data: { ...range, accessToken: token } });
+    },
+    retry: 1,
   });
   const revenue = orders.reduce((sum, order) => sum + order.total, 0);
   const itemsCount = orders.reduce((sum, order) => sum + order.order_items.reduce((n, item) => n + item.qty, 0), 0);
@@ -178,8 +192,8 @@ function CashierHistory() {
     </div>
     <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Total penjualan</p><p className="text-xl font-bold">{rp(revenue)}</p></div><div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Transaksi</p><p className="text-xl font-bold">{orders.length}</p></div><div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Jumlah item terjual</p><p className="text-xl font-bold">{itemsCount}</p></div></div>
     {isLoading && <p className="p-4 text-muted-foreground">Memuat riwayat…</p>}
-    {isError && <p role="alert" className="rounded-xl border border-destructive/40 p-4 text-sm">{error instanceof Error ? error.message : "Riwayat gagal dimuat."}</p>}
-    {!isLoading && !orders.length && <p className="rounded-xl border p-6 text-center text-muted-foreground">Tidak ada transaksi pada tanggal ini.</p>}
+    {isError && <div role="alert" className="space-y-3 rounded-xl border border-destructive/40 p-4 text-sm"><p>{error instanceof Error ? error.message : "Riwayat gagal dimuat."}</p><Button type="button" variant="outline" onClick={() => refetch()}>Coba muat ulang</Button></div>}
+    {!isLoading && !isError && !orders.length && <p className="rounded-xl border p-6 text-center text-muted-foreground">Tidak ada transaksi pada tanggal ini.</p>}
     <div className="space-y-3">{orders.map(o=><article key={o.id} className="space-y-2 rounded-xl border bg-card p-4"><div className="flex flex-wrap justify-between gap-2"><div><p className="font-semibold">Transaksi #{o.order_no}</p><p className="text-xs text-muted-foreground">{new Date(o.confirmed_at || o.created_at).toLocaleString("id-ID")}</p></div><span className="rounded-full bg-secondary px-2 py-1 text-xs">{o.source === "pos" ? "Kasir" : `Meja ${o.table_no}`}</span></div><div className="space-y-1 text-sm">{o.order_items.map((item,i)=><div key={i} className="flex justify-between gap-3"><span>{item.qty}× {item.name}</span><span>{rp(item.qty*item.price)}</span></div>)}</div><div className="flex justify-between border-t pt-2"><span className="text-sm text-muted-foreground">{o.payment_method.toUpperCase()}</span><strong>{rp(o.total)}</strong></div></article>)}</div>
   </div>;
 }
