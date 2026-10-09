@@ -34,7 +34,8 @@ const monthStart = () => { const d = new Date(); d.setDate(1); return d.toISOStr
 function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { data: permissions } = useQuery({ queryKey: ["admin-permissions"], queryFn: () => useServerFn(getAdminPermissions)() });
+  const fetchPermissions = useServerFn(getAdminPermissions);
+  const { data: permissions } = useQuery({ queryKey: ["admin-permissions"], queryFn: () => fetchPermissions() });
   async function logout() {
     await qc.cancelQueries(); qc.clear();
     await supabase.auth.signOut();
