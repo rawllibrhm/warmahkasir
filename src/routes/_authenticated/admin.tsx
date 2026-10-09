@@ -6,7 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins, Pencil, Plus, ShieldCheck, Search, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getReport, resetRevenue, listProductsAll, upsertProduct, deleteProduct, listPosTables, addPosTable, deletePosTable, getPosSettings, setCashierAddProductEnabled, getAdminPermissions, sendCashierMessage } from "@/lib/pos.functions";
+import { getReport, resetRevenue, listProductsAll, upsertProduct, deleteProduct, listPosTables, addPosTable, deletePosTable, getPosSettings, setCashierAddProductEnabled, getAdminPermissions, sendCashierMessage, listCustomerFeedback } from "@/lib/pos.functions";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -289,7 +289,24 @@ function TableQr() {
           ))}
         </div>
       )}
+      <FeedbackInbox />
     </div>
+  );
+}
+
+function FeedbackInbox() {
+  const fetchFeedback = useServerFn(listCustomerFeedback);
+  const { data = [], isLoading, isError, error, refetch } = useQuery({ queryKey: ["customer-feedback"], queryFn: () => fetchFeedback(), refetchInterval: 15000 });
+  return (
+    <section className="space-y-3 rounded-2xl border bg-card p-4 sm:p-5">
+      <div><h2 className="font-display text-xl font-bold">Kritik & Saran Pelanggan</h2><p className="text-sm text-muted-foreground">Masukan yang dikirim dari halaman scan QR meja.</p></div>
+      {isLoading ? <p className="text-sm text-muted-foreground">Memuat masukan…</p> : isError ? <div role="alert" className="text-sm"><p className="text-destructive">{error instanceof Error ? error.message : "Gagal memuat masukan."}</p><Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>Coba lagi</Button></div> : !data.length ? <p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">Belum ada kritik atau saran.</p> : (
+        <div className="space-y-3">{data.map((item) => <article key={item.id} className="rounded-xl border p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{item.kind === "kritik" ? "Kritik" : "Saran"} · Meja {item.table_no}</p><span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString("id-ID")}</span></div>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm">{item.message}</p><p className="mt-2 text-xs text-muted-foreground">{item.customer_name || "Pelanggan tanpa nama"}</p>
+        </article>)}</div>
+      )}
+    </section>
   );
 }
 
