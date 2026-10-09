@@ -52,6 +52,7 @@ function AdminPage() {
         <TabsContent value="laba"><Report /></TabsContent>
         <TabsContent value="produk"><Products /></TabsContent>
         <TabsContent value="qr"><TableQr /></TabsContent>
+        {permissions?.isSuperAdmin && <TabsContent value="messages"><CashierMessagePanel /></TabsContent>}
         {permissions?.isAdmin && <TabsContent value="cashier-settings"><CashierSettingsPanel canManage={permissions.isSuperAdmin} /></TabsContent>}
       </Tabs>
     </div>
@@ -275,7 +276,7 @@ function TableQr() {
           <p className="font-semibold text-destructive">Daftar meja gagal dimuat.</p>
           <p className="break-words text-sm text-muted-foreground">{error instanceof Error ? error.message : "Periksa koneksi database dan migrasi pos_tables."}</p>
           <Button type="button" variant="outline" onClick={() => refetch()}>Coba muat ulang</Button>
-          <p className="text-xs text-muted-foreground">Jika muncul “Could not find the table 'public.pos_tables' in the schema cache”, jalankan migrasi 0003_repair_pos_tables.sql pada project Supabase yang dipakai aplikasi.</p>
+          <p className="text-xs text-muted-foreground">Jika muncul “Could not find the table 'public.pos_tables' in the schema cache”, jalankan migrasi 0004_cashier_messages_feedback_and_pos_repair.sql pada project Supabase yang dipakai aplikasi.</p>
         </div>
       ) : !tables.length ? <p className="rounded-xl border p-8 text-center text-muted-foreground">Belum ada meja aktif.</p> : (
         <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
@@ -296,7 +297,7 @@ function CashierSettingsPanel({ canManage }: { canManage: boolean }) {
   const qc = useQueryClient();
   const fetchSettings = useServerFn(getPosSettings);
   const updateSetting = useServerFn(setCashierAddProductEnabled);
-  const { data: settings, isLoading } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings() });
+  const { data: settings, isLoading, isError, error, refetch } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings() });
 
   async function toggle(enabled: boolean) {
     try {
@@ -314,6 +315,7 @@ function CashierSettingsPanel({ canManage }: { canManage: boolean }) {
           <div className="flex-1">
             <h2 className="font-display text-xl font-bold">Pengaturan Kasir</h2>
             <p className="mt-1 text-sm text-muted-foreground">Atur fitur operasional kasir. Pengaturan ini mengontrol apakah kasir boleh menambahkan menu baru langsung dari halaman POS. Hak perubahan dibatasi untuk Super Admin dan diperiksa kembali di backend.</p>
+            {isError && <div role="alert" className="mt-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"><p className="font-semibold text-destructive">Pengaturan gagal dimuat</p><p className="mt-1 break-words text-muted-foreground">{error instanceof Error ? error.message : "Periksa migrasi Supabase."}</p><Button className="mt-2" variant="outline" size="sm" onClick={() => refetch()}>Coba lagi</Button></div>}
             <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <span className={settings?.cashierCanAddProducts ? "rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary" : "rounded-full bg-secondary px-3 py-1 text-sm font-semibold"}>{isLoading ? "Memuat…" : settings?.cashierCanAddProducts ? "Fitur aktif" : "Fitur nonaktif"}</span>
               <Button className="h-auto min-h-11 w-full whitespace-normal py-3 sm:w-auto" disabled={!canManage || isLoading || !settings} variant={settings?.cashierCanAddProducts ? "destructive" : "default"} onClick={() => toggle(!settings?.cashierCanAddProducts)}>{!canManage ? "Hanya Super Admin yang dapat mengubah" : settings?.cashierCanAddProducts ? "Matikan tambah barang di kasir" : "Aktifkan tambah barang di kasir"}</Button>
