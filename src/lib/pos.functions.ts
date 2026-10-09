@@ -452,7 +452,7 @@ export const submitCustomerFeedback = createServerFn({ method: "POST" })
   });
 
 
-export const listCashierHistory = createServerFn({ method: "POST" })
+export const getCashierHistorySecure = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
     from: z.string().datetime(),
     to: z.string().datetime(),
