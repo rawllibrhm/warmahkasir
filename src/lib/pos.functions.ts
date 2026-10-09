@@ -213,7 +213,8 @@ async function assertSuperAdmin(ctx: { supabase: any; userId: string; claims?: {
   if (ownersError || owners?.length || !adminRole.data) throw new Error("Fitur ini hanya untuk Super Admin");
 }
 
-async function assertCashierOrAdmin(ctx: { supabase: any; userId: string }) {
+async function assertCashierOrAdmin(ctx: { supabase: any; userId: string; claims?: { email?: unknown } }) {
+  if (isWarmahOwner(ctx)) return;
   const roles = await Promise.all(["kasir", "admin", "super_admin"].map((_role) =>
     ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role })
   ));
@@ -281,7 +282,7 @@ export const upsertProduct = createServerFn({ method: "POST" })
 export const getPosSettings = createServerFn({ method: "POST" }).handler(async () => {
   const db = await admin();
   const { data, error } = await db.from("app_settings").select("value").eq("key", "cashier_can_add_products").maybeSingle();
-  if (error) throw new Error("Pengaturan POS tidak dapat dimuat");
+  if (error) throw new Error(`Pengaturan POS gagal dimuat: ${error.message}. Jalankan migrasi 0004_cashier_messages_feedback_and_pos_repair.sql di Supabase.`);
   return { cashierCanAddProducts: data?.value === true };
 });
 
