@@ -124,7 +124,7 @@ export const confirmOrder = createServerFn({ method: "POST" })
     const { data: o } = await db.from("orders").select("total,status,payment_method").eq("id", data.id).single();
     if (!o) throw new Error("Pesanan tidak ditemukan");
     if (o.status === "dikonfirmasi") return { ok: true };
-    const patch: Record<string, unknown> = { status: "dikonfirmasi", confirmed_at: new Date().toISOString() };
+    const patch: { status: string; confirmed_at: string; cash_received?: number; change_amount?: number } = { status: "dikonfirmasi", confirmed_at: new Date().toISOString() };
     if (o.payment_method === "tunai") {
       const cash = data.cash_received ?? o.total;
       if (cash < o.total) throw new Error("Uang kurang");
@@ -181,8 +181,7 @@ export const restockProduct = createServerFn({ method: "POST" })
     const db = await admin();
     const { data: p } = await db.from("products").select("stock").eq("id", data.product_id).single();
     if (!p) throw new Error("Produk tidak ditemukan");
-    const patch: Record<string, number> = { stock: p.stock + data.qty };
-    if (data.cost !== undefined) patch.cost = data.cost;
+    const patch = data.cost !== undefined ? { stock: p.stock + data.qty, cost: data.cost } : { stock: p.stock + data.qty };
     await db.from("products").update(patch).eq("id", data.product_id);
     await db.from("restocks").insert({ product_id: data.product_id, qty: data.qty, cost: data.cost ?? null });
     return { ok: true };
