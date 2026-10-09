@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Minus, Plus, ShoppingBag, Wallet, QrCode, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { createTableOrder, submitCustomerFeedback } from "@/lib/pos.functions";
+import { createTableOrder, submitCustomerFeedback, getPosSettings } from "@/lib/pos.functions";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,8 @@ function MenuPage() {
   const navigate = useNavigate();
   const create = useServerFn(createTableOrder);
   const sendFeedback = useServerFn(submitCustomerFeedback);
+  const fetchSettings = useServerFn(getPosSettings);
+  const { data: posSettings } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), staleTime: 30000 });
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["menu"],
     queryFn: async () => (await supabase.from("products").select("id,name,category,price,stock").order("category").order("name")).data ?? [],
@@ -111,6 +113,16 @@ function MenuPage() {
         ))}
       </main>
 
+      <section className="mx-5 mb-6 mt-8 space-y-3 rounded-2xl border bg-card p-4">
+        <div><h2 className="font-display text-lg font-bold">Kritik & Saran</h2><p className="text-sm text-muted-foreground">Bantu kami meningkatkan pelayanan Warmah Kediri. Form ini juga tersedia setelah pesanan selesai.</p></div>
+        <form onSubmit={submitFeedback} className="space-y-3">
+          <Input placeholder="Nama (opsional)" value={feedbackName} onChange={e => setFeedbackName(e.target.value)} maxLength={60} />
+          <div className="grid grid-cols-2 gap-2"><Button type="button" variant={feedbackKind === "kritik" ? "default" : "outline"} onClick={() => setFeedbackKind("kritik")}>Kritik</Button><Button type="button" variant={feedbackKind === "saran" ? "default" : "outline"} onClick={() => setFeedbackKind("saran")}>Saran</Button></div>
+          <textarea className="min-h-24 w-full rounded-xl border bg-background p-3 text-sm" placeholder="Tuliskan kritik atau saran (minimal 3 karakter)" value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} required minLength={3} maxLength={1000} />
+          <Button className="w-full" type="submit" disabled={feedbackBusy || feedbackMessage.trim().length < 3}>{feedbackBusy ? "Mengirim…" : "Kirim Kritik / Saran"}</Button>
+        </form>
+      </section>
+
       {count > 0 && (
         <div className="fixed inset-x-0 bottom-0 mx-auto max-w-lg p-4">
           <Button className="h-14 w-full justify-between text-base" onClick={() => setOpen(true)}>
@@ -120,7 +132,7 @@ function MenuPage() {
         </div>
       )}
 
-      <a href={`https://wa.me/6285142274765?text=${encodeURIComponent(`Halo Warmah Kediri, saya pelanggan meja ${no}`)}`} target="_blank" rel="noreferrer" aria-label="Hubungi Warmah Kediri melalui WhatsApp" className="fixed bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105">
+      <a href={`https://wa.me/${(posSettings?.whatsappNumber || "6285142274765").replace(/\\D/g, "")}?text=${encodeURIComponent(`Halo Warmah Kediri, saya pelanggan meja ${no}`)}`} target="_blank" rel="noreferrer" aria-label="Hubungi Warmah Kediri melalui WhatsApp" className="fixed bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105">
         <MessageCircle className="h-6 w-6" />
       </a>
 
