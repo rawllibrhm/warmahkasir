@@ -406,7 +406,17 @@ export const listCashierMessages = createServerFn({ method: "POST" })
     const db = await admin();
     const { data, error } = await db.from("pos_messages").select("id,message,created_at,created_by").eq("active", true).order("created_at", { ascending: false }).limit(30);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    const messages = data ?? [];
+    if (!messages.length) return [];
+    // Hanya pesan yang belum dibalas "Oke" yang dikirim ke layar kasir.
+    // Dengan begitu, pesan lama tetap muncul setelah HP offline, tetapi pesan
+    // yang sudah diakui tidak muncul lagi setiap kali halaman dibuka.
+    const { data: replies, error: repliesError } = await db.from("pos_message_replies")
+      .select("message_id")
+      .in("message_id", messages.map((message) => message.id));
+    if (repliesError) throw new Error(repliesError.message);
+    const acknowledged = new Set((replies ?? []).map((reply) => reply.message_id));
+    return messages.filter((message) => !acknowledged.has(message.id));
   });
 
 export const sendCashierMessage = createServerFn({ method: "POST" })
