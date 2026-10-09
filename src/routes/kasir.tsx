@@ -100,7 +100,7 @@ function KasirPage() {
           <div className="max-h-[55vh] space-y-2 overflow-y-auto">
             {messageAlert.map((m) => <div key={m.id} className="rounded-lg bg-secondary p-3"><p className="whitespace-pre-wrap break-words">{m.message}</p><p className="mt-2 text-xs text-muted-foreground">{m.created_by || "Admin"} · {new Date(m.created_at).toLocaleString("id-ID")}</p></div>)}
           </div>
-          <Button className="h-12 text-base" onClick={async () => { try { await Promise.all(messageAlert.map((m) => acknowledge({ data: { message_id: m.id } })); toast.success("Balasan Oke terkirim ke admin"); } catch (e) { toast.error((e as Error).message); } setMessageAlert([]); }}>Oke, dimengerti</Button>
+          <Button className="h-12 text-base" onClick={async () => { try { await Promise.all(messageAlert.map((m) => acknowledge({ data: { message_id: m.id } }))); toast.success("Balasan Oke terkirim ke admin"); } catch (e) { toast.error((e as Error).message); } setMessageAlert([]); }}>Oke, dimengerti</Button>
         </DialogContent>
       </Dialog>
 
