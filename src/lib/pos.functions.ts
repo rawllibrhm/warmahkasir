@@ -438,6 +438,64 @@ export const submitCustomerFeedback = createServerFn({ method: "POST" })
   });
 
 
+export const listCashierHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ from: z.string(), to: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertCashierOrAdmin(context);
+    const db = await admin();
+    const { data: orders, error } = await db.from("orders")
+      .select("id,order_no,source,table_no,payment_method,total,status,created_at,confirmed_at,order_items(name,qty,price)")
+      .eq("status", "dikonfirmasi")
+      .gte("confirmed_at", data.from)
+      .lte("confirmed_at", data.to)
+      .order("confirmed_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return orders ?? [];
+  });
+
+export const setCashierWhatsappNumber = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ phone: z.string().trim().max(20).regex(/^[+0-9\\s()-]*$/) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const db = await admin();
+    const { error } = await db.from("app_settings").upsert({
+      key: "cashier_whatsapp_number",
+      value: data.phone.replace(/[^0-9]/g, ""),
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const listCashierMessageReplies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context);
+    const db = await admin();
+    const { data, error } = await db.from("pos_message_replies")
+      .select("id,message_id,reply,created_at,replied_by")
+      .order("created_at", { ascending: false }).limit(50);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const acknowledgeCashierMessage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertCashierOrAdmin(context);
+    const db = await admin();
+    const { error } = await db.from("pos_message_replies").upsert({
+      message_id: data.message_id,
+      reply: "Oke",
+      replied_by: String(context.claims?.email ?? "Kasir"),
+    }, { onConflict: "message_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const listCustomerFeedback = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
