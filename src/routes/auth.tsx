@@ -57,11 +57,13 @@ function AuthPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f4f7f4] p-3 sm:p-6 lg:p-8">
-      <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-emerald-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-40 -right-20 h-[28rem] w-[28rem] rounded-full bg-teal-100/70 blur-3xl" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#030b07] p-3 sm:p-6 lg:p-8">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.12]" style={{ backgroundImage: "linear-gradient(rgba(52,211,153,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(52,211,153,.12) 1px, transparent 1px)", backgroundSize: "42px 42px" }} />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.16)_50%)] bg-[length:100%_4px] opacity-30" />
+      <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-emerald-400/25 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -right-20 h-[28rem] w-[28rem] rounded-full bg-green-400/20 blur-3xl" />
 
-      <div className="relative grid min-h-[min(760px,calc(100vh-3rem))] w-full max-w-[1180px] overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_32px_100px_rgba(15,45,32,0.13)] lg:grid-cols-[1.04fr_.96fr]">
+      <div className="relative grid min-h-[min(760px,calc(100vh-3rem))] w-full max-w-[1180px] overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[#07140e] shadow-[0_32px_100px_rgba(0,255,120,0.10),0_0_0_1px_rgba(16,185,129,0.06)] lg:grid-cols-[1.04fr_.96fr]">
         <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#102c24] p-9 text-white sm:p-12 lg:flex xl:p-14">
           <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.22) 1px, transparent 0)", backgroundSize: "26px 26px" }} />
           <div className="pointer-events-none absolute -right-36 -top-32 h-[34rem] w-[34rem] rounded-full border border-emerald-100/10 shadow-[0_0_0_42px_rgba(255,255,255,.025),0_0_0_84px_rgba(255,255,255,.02)]" />
@@ -121,30 +123,30 @@ function AuthPage() {
           </div>
         </aside>
 
-        <section className="relative flex items-center justify-center px-5 py-8 sm:px-10 sm:py-12 lg:px-12 xl:px-16">
+        <section className="relative flex items-center justify-center bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.13),transparent_48%),linear-gradient(135deg,#07140e,#091b12_55%,#06100b)] px-5 py-8 text-white sm:px-10 sm:py-12 lg:px-12 xl:px-16">
           <div className="w-full max-w-[390px]">
             <div className="mb-9 flex items-center justify-between lg:hidden">
               <div className="flex items-center gap-3">
                 <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#123b2d] text-white shadow-lg shadow-emerald-950/15"><Store className="h-5 w-5" /></span>
                 <span>
-                  <span className="block font-display text-lg font-extrabold tracking-[-.05em] text-slate-900">warmah<span className="text-emerald-700">kasir</span></span>
-                  <span className="block text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">Warmah Kediri</span>
+                  <span className="block font-display text-lg font-extrabold tracking-[-.05em] text-white">warmah<span className="text-emerald-700">kasir</span></span>
+                  <span className="block text-[10px] font-semibold uppercase tracking-[.14em] text-emerald-100/50">Warmah Kediri</span>
                 </span>
               </div>
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-50 text-emerald-800"><ShieldCheck className="h-4 w-4" /></span>
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-400/10 text-emerald-300"><ShieldCheck className="h-4 w-4" /></span>
             </div>
 
             <div className="mb-8">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[.13em] text-emerald-800">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[.13em] text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.08)]">
                 <Fingerprint className="h-3.5 w-3.5" /> Login administrator
               </div>
-              <h2 className="font-display text-3xl font-extrabold tracking-[-.055em] text-slate-900 sm:text-[2.5rem]">Selamat datang.</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-500">Masuk untuk membuka ruang kerja admin Warmah.</p>
+              <h2 className="font-display text-3xl font-extrabold tracking-[-.055em] text-white sm:text-[2.5rem]">Selamat datang.</h2>
+              <p className="mt-3 text-sm leading-6 text-emerald-100/60">Masuk untuk membuka ruang kerja admin Warmah.</p>
             </div>
 
             <form onSubmit={submit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-bold text-slate-700">Email admin</Label>
+                <Label htmlFor="email" className="text-xs font-bold text-emerald-100/80">Email admin</Label>
                 <Input
                   id="email"
                   type="email"
@@ -154,13 +156,13 @@ function AuthPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="nama@usaha.com"
                   required
-                  className="h-12 rounded-xl border-slate-200 bg-slate-50/70 px-4 text-sm shadow-none placeholder:text-slate-400 focus-visible:border-emerald-600 focus-visible:ring-emerald-600/15"
+                  className="h-12 rounded-xl border-emerald-400/20 bg-[#020a06]/80 px-4 text-sm text-emerald-50 shadow-[inset_0_1px_8px_rgba(0,0,0,0.35)] placeholder:text-emerald-100/30 focus-visible:border-emerald-400 focus-visible:ring-emerald-400/20"
                 />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-xs font-bold text-slate-700">Password</Label>
-                  <span className="text-[11px] font-medium text-slate-400">Rahasia akun Anda</span>
+                  <Label htmlFor="password" className="text-xs font-bold text-emerald-100/80">Password</Label>
+                  <span className="text-[11px] font-medium text-emerald-200/40">Rahasia akun Anda</span>
                 </div>
                 <div className="relative">
                   <Input
@@ -171,33 +173,33 @@ function AuthPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Masukkan password"
                     required
-                    className="h-12 rounded-xl border-slate-200 bg-slate-50/70 px-4 pr-12 text-sm shadow-none placeholder:text-slate-400 focus-visible:border-emerald-600 focus-visible:ring-emerald-600/15"
+                    className="h-12 rounded-xl border-emerald-400/20 bg-[#020a06]/80 px-4 pr-12 text-sm text-emerald-50 shadow-[inset_0_1px_8px_rgba(0,0,0,0.35)] placeholder:text-emerald-100/30 focus-visible:border-emerald-400 focus-visible:ring-emerald-400/20"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
                     aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                    className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl text-slate-400 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30"
+                    className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl text-emerald-200/50 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/30"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
-              <Button type="submit" className="group h-12 w-full rounded-xl bg-[#14513b] text-sm font-bold text-white shadow-lg shadow-emerald-950/10 hover:bg-[#103e2e]" disabled={busy}>
+              <Button type="submit" className="group h-12 w-full rounded-xl bg-gradient-to-r from-emerald-500 via-green-400 to-lime-400 text-sm font-extrabold text-[#031008] shadow-[0_0_30px_rgba(34,197,94,0.22)] hover:from-emerald-400 hover:via-green-300 hover:to-lime-300" disabled={busy}>
                 {busy ? "Memeriksa akun…" : <span className="flex items-center justify-center gap-2">Masuk ke dashboard <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>}
               </Button>
             </form>
 
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/80 p-3.5">
-              <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-emerald-800 shadow-sm"><LockKeyhole className="h-3.5 w-3.5" /></span>
-              <p className="text-[11px] leading-5 text-slate-500">Area terbatas. Hanya akun yang terdaftar dan memiliki izin admin yang dapat masuk.</p>
+            <div className="mt-6 flex items-start gap-3 rounded-xl border border-emerald-400/15 bg-emerald-400/[0.05] p-3.5">
+              <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-emerald-400/10 bg-[#0c2116] text-emerald-300 shadow-sm"><LockKeyhole className="h-3.5 w-3.5" /></span>
+              <p className="text-[11px] leading-5 text-emerald-100/55">Area terbatas. Hanya akun yang terdaftar dan memiliki izin admin yang dapat masuk.</p>
             </div>
 
             <button
               type="button"
               onClick={() => navigate({ to: "/" })}
-              className="mx-auto mt-7 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30"
+              className="mx-auto mt-7 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-emerald-100/45 transition-colors hover:bg-emerald-300/10 hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/30"
             >
               <ArrowLeft className="h-4 w-4" /> Kembali ke beranda
             </button>
