@@ -48,11 +48,11 @@ function AdminPage() {
         <Button variant="outline" size="sm" className="rounded-xl" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
       </header>
       <Tabs defaultValue="laba" className="dashboard-content px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-secondary p-1 sm:w-fit"><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="produk">Produk</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="qr">Meja & QR</TabsTrigger>{permissions?.isSuperAdmin && <TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="superadmin">Super Admin</TabsTrigger>}</TabsList></div>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-primary">Ikhtisar usaha</p><h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Pantau penjualan, produk, dan kebutuhan operasional.</p></div><TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-secondary p-1 sm:w-fit"><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="laba">Laba/Rugi</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="produk">Produk</TabsTrigger><TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="qr">Meja & QR</TabsTrigger>{permissions?.isAdmin && <TabsTrigger className="min-w-0 flex-1 rounded-lg px-2 text-xs sm:flex-none sm:px-4 sm:text-sm" value="cashier-settings">Pengaturan Kasir</TabsTrigger>}</TabsList></div>
         <TabsContent value="laba"><Report /></TabsContent>
         <TabsContent value="produk"><Products /></TabsContent>
         <TabsContent value="qr"><TableQr /></TabsContent>
-        {permissions?.isSuperAdmin && <TabsContent value="superadmin"><SuperAdminPanel /></TabsContent>}
+        {permissions?.isAdmin && <TabsContent value="cashier-settings"><CashierSettingsPanel canManage={permissions.isSuperAdmin} /></TabsContent>}
       </Tabs>
     </div>
   );
@@ -285,7 +285,7 @@ function TableQr() {
   );
 }
 
-function SuperAdminPanel() {
+function CashierSettingsPanel({ canManage }: { canManage: boolean }) {
   const qc = useQueryClient();
   const fetchSettings = useServerFn(getPosSettings);
   const updateSetting = useServerFn(setCashierAddProductEnabled);
@@ -305,11 +305,11 @@ function SuperAdminPanel() {
         <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-start">
           <span className="w-fit shrink-0 rounded-xl bg-primary/10 p-3 text-primary"><ShieldCheck className="h-6 w-6" /></span>
           <div className="flex-1">
-            <h2 className="font-display text-xl font-bold">Kontrol akses kasir</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Atur apakah akun dengan hak akses kasir boleh membuat barang baru langsung dari halaman POS. Perubahan ini diperiksa kembali di backend.</p>
+            <h2 className="font-display text-xl font-bold">Pengaturan Kasir</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Atur fitur operasional kasir. Pengaturan ini mengontrol apakah kasir boleh menambahkan menu baru langsung dari halaman POS. Hak perubahan dibatasi untuk Super Admin dan diperiksa kembali di backend.</p>
             <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <span className={settings?.cashierCanAddProducts ? "rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary" : "rounded-full bg-secondary px-3 py-1 text-sm font-semibold"}>{isLoading ? "Memuat…" : settings?.cashierCanAddProducts ? "Fitur aktif" : "Fitur nonaktif"}</span>
-              <Button className="h-auto min-h-11 w-full whitespace-normal py-3 sm:w-auto" disabled={isLoading || !settings} variant={settings?.cashierCanAddProducts ? "destructive" : "default"} onClick={() => toggle(!settings?.cashierCanAddProducts)}>{settings?.cashierCanAddProducts ? "Matikan tambah barang di kasir" : "Aktifkan tambah barang di kasir"}</Button>
+              <Button className="h-auto min-h-11 w-full whitespace-normal py-3 sm:w-auto" disabled={!canManage || isLoading || !settings} variant={settings?.cashierCanAddProducts ? "destructive" : "default"} onClick={() => toggle(!settings?.cashierCanAddProducts)}>{!canManage ? "Hanya Super Admin yang dapat mengubah" : settings?.cashierCanAddProducts ? "Matikan tambah barang di kasir" : "Aktifkan tambah barang di kasir"}</Button>
             </div>
           </div>
         </div>
