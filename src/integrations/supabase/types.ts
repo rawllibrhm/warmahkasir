@@ -181,6 +181,18 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: { key: string; value: Json; updated_at: string }
+        Insert: { key: string; value: Json; updated_at?: string }
+        Update: { key?: string; value?: Json; updated_at?: string }
+        Relationships: []
+      }
+      pos_tables: {
+        Row: { active: boolean; created_at: string; table_no: string }
+        Insert: { active?: boolean; created_at?: string; table_no: string }
+        Update: { active?: boolean; created_at?: string; table_no?: string }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -211,9 +223,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_pos_table: {
+        Args: { _table_no: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      app_role: "admin"
+      app_role: "admin" | "super_admin" | "kasir"
     }
     CompositeTypes: {
       [_ in never]: never
