@@ -1,5 +1,5 @@
 -- Repair POS tables and the active-table RPC.
--- This migration is idempotent and also fixes the malformed function in 0001_pos_controls.sql.
+-- Idempotent; repairs the malformed function in 0001_pos_controls.sql.
 create table if not exists public.app_settings (
   key text primary key,
   value jsonb not null,
@@ -37,20 +37,18 @@ as $$
     ) then exists (
       select 1 from public.pos_tables where table_no = _table_no and active = true
     )
-    else _table_no ~ '^[0-9]{1,3}
+    when _table_no ~ '^[0-9]{1,3}$' then _table_no::integer between 1 and 100
+    else false
   end
 $$;
-
 grant execute on function public.is_active_pos_table(text) to anon, authenticated, service_role;
 
--- Tell PostgREST/Supabase API to refresh its schema cache after the DDL.
-notify pgrst, 'reload schema';
+-- Ensure the named owner is assigned Super Admin when their Auth account exists.
+insert into public.user_roles (user_id, role)
+select id, 'super_admin'::public.app_role
+from auth.users
+where lower(email) = 'warmah@kediri.com'
+on conflict (user_id, role) do nothing;
 
-      and _table_no::integer between 1 and 100
-  end
-$$;
-
-grant execute on function public.is_active_pos_table(text) to anon, authenticated, service_role;
-
--- Tell PostgREST/Supabase API to refresh its schema cache after the DDL.
+-- Refresh PostgREST after the table/function changes.
 notify pgrst, 'reload schema';
