@@ -318,8 +318,8 @@ function CashierSettingsPanel({ canManage }: { canManage: boolean }) {
   const [whatsapp, setWhatsapp] = useState("");
   const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const whatsappInitialized = useRef(false);
-  useEffect(() => { if (settings?.whatsappNumber && !whatsappInitialized.current) { setWhatsapp(settings.whatsappNumber); whatsappInitialized.current = true; } }, [settings?.whatsappNumber]);
   const { data: settings, isLoading, isError, error, refetch } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings() });
+  useEffect(() => { if (settings?.whatsappNumber && !whatsappInitialized.current) { setWhatsapp(settings.whatsappNumber); whatsappInitialized.current = true; } }, [settings?.whatsappNumber]);
 
   async function toggle(enabled: boolean) {
     try {
