@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2 } from "lucide-react";
+import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2, Search, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
-import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct } from "@/lib/pos.functions";
+import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, getPosSettings, createCashierProduct } from "@/lib/pos.functions";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,6 +158,11 @@ function Pos() {
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
   const checkout = useServerFn(posCheckout);
+  const createProduct = useServerFn(createCashierProduct);
+  const fetchSettings = useServerFn(getPosSettings);
+  const { data: posSettings } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings() });
+  const [newProductOpen, setNewProductOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: "", barcode: "", category: "Makanan", price: "", cost: "", stock: "" });
   const [q, setQ] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cash, setCash] = useState("");
@@ -175,6 +180,17 @@ function Pos() {
     if (hit) { add(hit.id, 1); setQ(""); } else if (filtered.length === 1) { add(filtered[0]!.id, 1); setQ(""); }
   }
 
+  async function saveNewProduct(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await createProduct({ data: { name: newProduct.name, barcode: newProduct.barcode || undefined, category: newProduct.category, price: Number(newProduct.price), cost: Number(newProduct.cost), stock: Number(newProduct.stock) } });
+      toast.success("Barang baru berhasil ditambahkan");
+      setNewProduct({ name: "", barcode: "", category: "Makanan", price: "", cost: "", stock: "" });
+      setNewProductOpen(false);
+      await qc.invalidateQueries({ queryKey: ["products-all"] });
+    } catch (e) { toast.error((e as Error).message); }
+  }
+
   async function pay() {
     try {
       const r = await checkout({ data: { items: lines.map((l) => ({ product_id: l.id, qty: l.qty })), payment_method: method, cash_received: c } });
@@ -189,10 +205,25 @@ function Pos() {
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div className="space-y-3">
-        <form onSubmit={onScan} className="relative">
-          <ScanBarcode className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-          <Input autoFocus className="h-11 pl-10" placeholder="Cari nama atau scan barcode lalu Enter" value={q} onChange={(e) => setQ(e.target.value)} />
-        </form>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <form onSubmit={onScan} className="relative min-w-0 flex-1">
+            <ScanBarcode className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+            <Input autoFocus className="h-11 pl-10" placeholder="Cari nama atau scan barcode lalu Enter" value={q} onChange={(e) => setQ(e.target.value)} />
+          </form>
+          {posSettings?.cashierCanAddProducts && <Button type="button" className="h-11 shrink-0" onClick={() => setNewProductOpen((v) => !v)}><PackagePlus className="mr-2 h-4 w-4" />Tambah barang</Button>}
+        </div>
+        {newProductOpen && posSettings?.cashierCanAddProducts && (
+          <form onSubmit={saveNewProduct} className="grid gap-2 rounded-xl border border-primary/30 bg-card p-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="sm:col-span-2 xl:col-span-3"><p className="font-semibold">Barang baru</p><p className="text-xs text-muted-foreground">Fitur ini diaktifkan oleh Super Admin.</p></div>
+            <Input placeholder="Nama barang" required maxLength={80} value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
+            <Input placeholder="Barcode (opsional)" maxLength={40} value={newProduct.barcode} onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })} />
+            <Input placeholder="Kategori" required maxLength={30} value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} />
+            <Input placeholder="Harga jual (Rp)" type="number" min="0" required value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} />
+            <Input placeholder="Modal (Rp)" type="number" min="0" required value={newProduct.cost} onChange={(e) => setNewProduct({ ...newProduct, cost: e.target.value })} />
+            <Input placeholder="Stok awal" type="number" min="0" required value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} />
+            <div className="flex gap-2 sm:col-span-2 xl:col-span-3"><Button type="submit">Simpan barang</Button><Button type="button" variant="outline" onClick={() => setNewProductOpen(false)}>Batal</Button></div>
+          </form>
+        )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => (
             <button key={p.id} onClick={() => add(p.id, 1)} disabled={p.stock <= (cart[p.id] ?? 0)} className="rounded-xl border bg-card p-3 text-left transition hover:border-primary disabled:opacity-40">
@@ -238,7 +269,9 @@ function Restock() {
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
   const restock = useServerFn(restockProduct);
+  const [search, setSearch] = useState("");
   const [vals, setVals] = useState<Record<string, { qty: string; cost: string }>>({});
+  const filteredProducts = products.filter((p) => [p.name, p.category, p.barcode ?? ""].some((v) => v.toLowerCase().includes(search.trim().toLowerCase())));
 
   async function save(id: string) {
     const v = vals[id];
@@ -253,11 +286,13 @@ function Restock() {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 rounded-xl border bg-card p-3"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Cari barang restock berdasarkan nama, kategori, atau barcode…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+      <div className="overflow-x-auto rounded-xl border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-secondary text-left"><tr><th className="p-3">Produk</th><th>Barcode</th><th>Stok</th><th>Modal</th><th>Tambah</th><th>Modal baru</th><th /></tr></thead>
         <tbody>
-          {products.map((p) => (
+          {filteredProducts.map((p) => (
             <tr key={p.id} className="border-t">
               <td className="p-3 font-medium">{p.name}</td>
               <td className="text-muted-foreground">{p.barcode}</td>
@@ -268,8 +303,10 @@ function Restock() {
               <td className="pr-3"><Button size="sm" onClick={() => save(p.id)}>Simpan</Button></td>
             </tr>
           ))}
+          {!filteredProducts.length && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Barang tidak ditemukan.</td></tr>}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
