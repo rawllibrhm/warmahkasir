@@ -436,3 +436,14 @@ export const submitCustomerFeedback = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+
+export const listCustomerFeedback = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const db = await admin();
+    const { data, error } = await db.from("customer_feedback").select("id,table_no,customer_name,kind,message,created_at,status").order("created_at", { ascending: false }).limit(100);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
