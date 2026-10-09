@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins, Pencil, Plus, ShieldCheck, Search, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getReport, resetRevenue, listProductsAll, upsertProduct, deleteProduct, listPosTables, addPosTable, deletePosTable, getPosSettings, setCashierAddProductEnabled, getAdminPermissions, sendCashierMessage, listCustomerFeedback } from "@/lib/pos.functions";
+import { getReport, resetRevenue, listProductsAll, upsertProduct, deleteProduct, listPosTables, addPosTable, deletePosTable, getPosSettings, setCashierAddProductEnabled, getAdminPermissions, sendCashierMessage, listCustomerFeedback, setCashierWhatsappNumber, listCashierMessageReplies } from "@/lib/pos.functions";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -314,6 +314,10 @@ function CashierSettingsPanel({ canManage }: { canManage: boolean }) {
   const qc = useQueryClient();
   const fetchSettings = useServerFn(getPosSettings);
   const updateSetting = useServerFn(setCashierAddProductEnabled);
+  const saveWhatsapp = useServerFn(setCashierWhatsappNumber);
+  const [whatsapp, setWhatsapp] = useState("");
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
+  useEffect(() => { if (settings?.whatsappNumber && !whatsapp) setWhatsapp(settings.whatsappNumber); }, [settings?.whatsappNumber, whatsapp]);
   const { data: settings, isLoading, isError, error, refetch } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings() });
 
   async function toggle(enabled: boolean) {
@@ -340,6 +344,15 @@ function CashierSettingsPanel({ canManage }: { canManage: boolean }) {
           </div>
         </div>
       </div>
+      <div className="rounded-2xl border bg-card p-4 sm:p-6">
+        <h2 className="font-display text-xl font-bold">Nomor WhatsApp Rekap</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Nomor ini dipakai tombol WhatsApp pada rekap kasir dan pintasan pelanggan. Gunakan kode negara, misalnya 6285142274765.</p>
+        <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={async (e) => { e.preventDefault(); setSavingWhatsapp(true); try { await saveWhatsapp({ data: { phone: whatsapp } }); await qc.invalidateQueries({ queryKey: ["pos-settings"] }); toast.success("Nomor WhatsApp disimpan"); } catch (e) { toast.error((e as Error).message); } finally { setSavingWhatsapp(false); } }}>
+          <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="628xxxxxxxxxx" inputMode="tel" maxLength={20} required disabled={!canManage} />
+          <Button type="submit" disabled={!canManage || savingWhatsapp}>{savingWhatsapp ? "Menyimpan…" : "Simpan nomor"}</Button>
+        </form>
+        {!canManage && <p className="mt-2 text-xs text-muted-foreground">Hanya Super Admin yang dapat mengubah nomor WhatsApp.</p>}
+      </div>
     </div>
   );
 }
@@ -349,6 +362,16 @@ function CashierMessagePanel() {
   const send = useServerFn(sendCashierMessage);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const fetchReplies = useServerFn(listCashierMessageReplies);
+  const { data: replies = [] } = useQuery({ queryKey: ["cashier-message-replies"], queryFn: () => fetchReplies(), refetchInterval: 5000 });
+  const seenReplies = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const ids = new Set(replies.map(r => r.id));
+    if (seenReplies.current === null) { seenReplies.current = ids; return; }
+    const fresh = replies.filter(r => !seenReplies.current!.has(r.id));
+    seenReplies.current = ids;
+    if (fresh.length) toast.success("Kasir membalas: Oke", { description: fresh.map(r => r.replied_by || "Kasir").join(", ") });
+  }, [replies]);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -367,13 +390,14 @@ function CashierMessagePanel() {
       <div className="rounded-2xl border bg-card p-4 sm:p-6">
         <div className="flex items-center gap-3">
           <span className="rounded-xl bg-primary/10 p-3 text-primary"><MessageSquare className="h-6 w-6" /></span>
-          <div><h2 className="font-display text-xl font-bold">Pesan untuk Kasir</h2><p className="text-sm text-muted-foreground">Pesan akan muncul sebagai notifikasi beralarm di halaman kasir yang sedang terbuka.</p></div>
+          <div><h2 className="font-display text-xl font-bold">Pesan Operasional ke Kasir</h2><p className="text-sm text-muted-foreground">Tampil seperti kartu pemberitahuan order meja, dengan alarm berbeda. Saat kasir menekan “Oke”, admin mendapat notifikasi balasan.</p></div>
         </div>
         <form onSubmit={submit} className="mt-5 space-y-3">
           <label className="block text-sm font-medium">Isi pesan<textarea className="mt-1 min-h-28 w-full rounded-xl border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} required placeholder="Contoh: Mohon cek stok minuman dan rapikan area kasir." /></label>
           <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">{message.length}/500 karakter</span><Button type="submit" disabled={busy || !message.trim()}><MessageSquare className="mr-2 h-4 w-4" />{busy ? "Mengirim…" : "Kirim pesan"}</Button></div>
         </form>
       </div>
+      <div className="rounded-2xl border bg-card p-4"><h3 className="font-semibold">Balasan dari kasir</h3><p className="mb-3 text-sm text-muted-foreground">Notifikasi muncul otomatis saat kasir menekan tombol Oke.</p>{replies.length ? replies.slice(0,8).map(r => <div key={r.id} className="flex items-center justify-between gap-3 border-t py-3 text-sm"><div><p className="font-medium">{r.reply} — {r.replied_by || "Kasir"}</p><p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString("id-ID")}</p></div><span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">Diterima</span></div>) : <p className="text-sm text-muted-foreground">Belum ada balasan.</p>}</div>
     </div>
   );
 }
