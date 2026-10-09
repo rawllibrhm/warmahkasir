@@ -17,7 +17,7 @@ function Home() {
   const cards = [
     { to: "/kasir", icon: ChefHat, title: "Kasir", desc: "POS, restock, dan pesanan meja dengan alarm." },
     { to: "/admin", icon: LayoutDashboard, title: "Admin", desc: "Laba/rugi, filter tanggal, produk, QR meja." },
-    { to: "/meja/1", icon: QrCode, title: "Contoh Menu Meja 1", desc: "Tampilan pelanggan setelah scan QR." },
+    { to: "/meja/$no", icon: QrCode, title: "Contoh Menu Meja 1", desc: "Tampilan pelanggan setelah scan QR." },
   ] as const;
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-secondary px-5 py-12">
@@ -26,7 +26,7 @@ function Home() {
       <p className="mt-3 max-w-md text-center text-muted-foreground">Kasir & self-order QR meja dalam satu tempat.</p>
       <div className="mt-10 grid w-full max-w-3xl gap-4 sm:grid-cols-3">
         {cards.map(({ to, icon: Icon, title, desc }) => (
-          <Link key={to} to={to} params={to === "/meja/1" ? undefined : undefined} className="group rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:border-primary">
+          <Link key={to} to={to} params={{ no: "1" }} className="group rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:border-primary">
             <Icon className="h-8 w-8 text-primary" />
             <p className="mt-4 font-display text-lg font-bold">{title}</p>
             <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
