@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2, Search, PackagePlus } from "lucide-react";
+import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2, Search, PackagePlus, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, getPosSettings, createCashierProduct } from "@/lib/pos.functions";
+import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, getPosSettings, createCashierProduct, listCashierMessages } from "@/lib/pos.functions";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,10 @@ function KasirPage() {
   const fetchLive = useServerFn(listLiveOrders);
   const [armed, setArmed] = useState(false);
   const [alert, setAlert] = useState<Live[]>([]);
+  const [messageAlert, setMessageAlert] = useState<Array<{ id: string; message: string; created_at: string; created_by: string | null }>>([]);
+  const seenMessages = useRef<Set<string> | null>(null);
+  const fetchMessages = useServerFn(listCashierMessages);
+  const { data: cashierMessages = [] } = useQuery({ queryKey: ["cashier-messages"], queryFn: () => fetchMessages(), refetchInterval: 5000, retry: false });
   const seen = useRef<Set<string> | null>(null);
   const stopRef = useRef<null | (() => void)>(null);
 
@@ -48,7 +52,24 @@ function KasirPage() {
     }
   }, [live, armed, isSuccess]);
 
+  useEffect(() => {
+    if (!cashierMessages.length) return;
+    const ids = new Set(cashierMessages.map((m) => m.id));
+    if (seenMessages.current === null) { seenMessages.current = ids; return; }
+    const fresh = cashierMessages.filter((m) => !seenMessages.current!.has(m.id));
+    seenMessages.current = ids;
+    if (fresh.length) {
+      setMessageAlert((old) => [...fresh, ...old].slice(0, 10));
+      if (armed) {
+        const stop = startAlarm();
+        window.setTimeout(stop, 2200);
+      }
+      toast.info("Ada pesan baru dari admin", { duration: 5000 });
+    }
+  }, [cashierMessages, armed]);
+
   const dismiss = () => { stopRef.current?.(); stopRef.current = null; setAlert([]); };
+
 
   return (
     <div className="app-shell min-h-screen bg-background">
@@ -68,6 +89,16 @@ function KasirPage() {
         <TabsContent value="pos"><Pos /></TabsContent>
         <TabsContent value="stok"><Restock /></TabsContent>
       </Tabs>
+
+      <Dialog open={messageAlert.length > 0} onOpenChange={(o) => !o && setMessageAlert([])}>
+        <DialogContent className="border-4 border-primary">
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-2xl"><MessageSquare className="h-7 w-7 animate-bounce text-primary" /> Pesan dari Admin</DialogTitle></DialogHeader>
+          <div className="max-h-[55vh] space-y-2 overflow-y-auto">
+            {messageAlert.map((m) => <div key={m.id} className="rounded-lg bg-secondary p-3"><p className="whitespace-pre-wrap break-words">{m.message}</p><p className="mt-2 text-xs text-muted-foreground">{m.created_by || "Admin"} · {new Date(m.created_at).toLocaleString("id-ID")}</p></div>)}
+          </div>
+          <Button className="h-12 text-base" onClick={() => setMessageAlert([])}>Mengerti</Button>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={alert.length > 0} onOpenChange={(o) => !o && dismiss()}>
         <DialogContent className="border-4 border-primary">
