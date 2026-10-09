@@ -281,9 +281,13 @@ export const upsertProduct = createServerFn({ method: "POST" })
 // ---------- Pengaturan Super Admin & meja ----------
 export const getPosSettings = createServerFn({ method: "POST" }).handler(async () => {
   const db = await admin();
-  const { data, error } = await db.from("app_settings").select("value").eq("key", "cashier_can_add_products").maybeSingle();
-  if (error) throw new Error(`Pengaturan POS gagal dimuat: ${error.message}. Jalankan migrasi 0004_cashier_messages_feedback_and_pos_repair.sql di Supabase.`);
-  return { cashierCanAddProducts: data?.value === true };
+  const { data, error } = await db.from("app_settings").select("key,value").in("key", ["cashier_can_add_products", "cashier_whatsapp_number"]);
+  if (error) throw new Error(`Pengaturan POS gagal dimuat: ${error.message}. Jalankan migrasi 0004_cashier_messages_feedback_and_pos_repair.sql dan 0005_cashier_history_whatsapp_replies.sql di Supabase.`);
+  const settings = new Map((data ?? []).map((row) => [row.key, row.value]));
+  return {
+    cashierCanAddProducts: settings.get("cashier_can_add_products") === true,
+    whatsappNumber: typeof settings.get("cashier_whatsapp_number") === "string" ? settings.get("cashier_whatsapp_number") as string : "6285142274765",
+  };
 });
 
 export const setCashierAddProductEnabled = createServerFn({ method: "POST" })
