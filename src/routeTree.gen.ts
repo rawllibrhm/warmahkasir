@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MejaNoRouteImport } from './routes/meja.$no'
+import { Route as PesananIdRouteImport } from './routes/pesanan.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MejaNoRoute = MejaNoRouteImport.update({
+  id: '/meja/$no',
+  path: '/meja/$no',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PesananIdRoute = PesananIdRouteImport.update({
+  id: '/pesanan/$id',
+  path: '/pesanan/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/meja/$no': typeof MejaNoRoute
+  '/pesanan/$id': typeof PesananIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/meja/$no': typeof MejaNoRoute
+  '/pesanan/$id': typeof PesananIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/meja/$no': typeof MejaNoRoute
+  '/pesanan/$id': typeof PesananIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/meja/$no' | '/pesanan/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/meja/$no' | '/pesanan/$id'
+  id: '__root__' | '/' | '/meja/$no' | '/pesanan/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MejaNoRoute: typeof MejaNoRoute
+  PesananIdRoute: typeof PesananIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/meja/$no': {
+      id: '/meja/$no'
+      path: '/meja/$no'
+      fullPath: '/meja/$no'
+      preLoaderRoute: typeof MejaNoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pesanan/$id': {
+      id: '/pesanan/$id'
+      path: '/pesanan/$id'
+      fullPath: '/pesanan/$id'
+      preLoaderRoute: typeof PesananIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MejaNoRoute: MejaNoRoute,
+  PesananIdRoute: PesananIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
