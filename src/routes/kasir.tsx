@@ -34,7 +34,7 @@ function KasirPage() {
   const seenMessages = useRef<Set<string> | null>(null);
   const fetchMessages = useServerFn(listCashierMessages);
   const acknowledge = useServerFn(acknowledgeCashierMessage);
-  const { data: cashierMessages = [] } = useQuery({ queryKey: ["cashier-messages"], queryFn: () => fetchMessages(), refetchInterval: 5000, retry: false });
+  const { data: cashierMessages = [] } = useQuery({ queryKey: ["cashier-messages"], queryFn: () => fetchMessages(), refetchInterval: 5000, refetchIntervalInBackground: true, refetchOnWindowFocus: true, refetchOnReconnect: true, retry: 2 });
   const seen = useRef<Set<string> | null>(null);
   const stopRef = useRef<null | (() => void)>(null);
 
@@ -54,18 +54,33 @@ function KasirPage() {
   }, [live, armed, isSuccess]);
 
   useEffect(() => {
-    if (!cashierMessages.length) return;
+    if (!cashierMessages.length) {
+      if (seenMessages.current === null) seenMessages.current = new Set();
+      return;
+    }
     const ids = new Set(cashierMessages.map((m) => m.id));
-    if (seenMessages.current === null) { seenMessages.current = ids; return; }
-    const fresh = cashierMessages.filter((m) => !seenMessages.current!.has(m.id));
+    // Pesan yang belum dijawab tetap ditampilkan saat kasir baru membuka halaman,
+    // termasuk pesan yang dikirim ketika HP offline atau tab ditutup.
+    const fresh = seenMessages.current === null
+      ? cashierMessages
+      : cashierMessages.filter((m) => !seenMessages.current!.has(m.id));
     seenMessages.current = ids;
     if (fresh.length) {
-      setMessageAlert((old) => [...fresh, ...old].slice(0, 10));
+      setMessageAlert((old) => [...fresh, ...old.filter((m) => !fresh.some((n) => n.id === m.id))].slice(0, 10));
       if (armed) {
         const stop = startAlarm();
         window.setTimeout(stop, 2200);
       }
-      toast.info("Ada pesan baru dari admin", { duration: 5000 });
+      toast.info(fresh.length === 1 ? "Ada pesan baru dari admin" : `Ada ${fresh.length} pesan admin yang belum dibaca`, { duration: 5000 });
+      if ("Notification" in window && Notification.permission === "granted") {
+        const latest = fresh[0];
+        const notification = new Notification("Pesan dari Admin — Warmah Kasir", {
+          body: latest.message,
+          tag: `admin-message-${latest.id}`,
+          renotify: true,
+        });
+        notification.onclick = () => { window.focus(); notification.close(); };
+      }
     }
   }, [cashierMessages, armed]);
 
@@ -76,7 +91,7 @@ function KasirPage() {
     <div className="app-shell min-h-screen bg-background">
       <header className="app-header sticky top-0 z-20 flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <Link to="/" className="brand-lockup"><span className="brand-mark"><ChefHat className="h-5 w-5" /></span><span><span className="brand-name block">warmah<span className="text-primary">kasir</span></span><span className="block text-xs text-muted-foreground">Meja operasional</span></span></Link>
-        <Button className="rounded-xl" variant={armed ? "secondary" : "default"} size="sm" onClick={() => { setArmed(true); const s = startAlarm(); setTimeout(s, 400); }}>
+        <Button className="rounded-xl" variant={armed ? "secondary" : "default"} size="sm" onClick={async () => { setArmed(true); const s = startAlarm(); setTimeout(s, 400); if ("Notification" in window && Notification.permission === "default") { try { await Notification.requestPermission(); } catch { /* izin notifikasi opsional; alarm halaman tetap aktif */ } } }}>
           <Volume2 className="mr-1 h-4 w-4" />{armed ? "Alarm aktif" : "Aktifkan alarm"}
         </Button>
       </header>
