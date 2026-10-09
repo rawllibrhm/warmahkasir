@@ -379,9 +379,8 @@ function Restock() {
               <div className="min-w-0"><h3 className="break-words font-semibold">{p.name}</h3><p className="break-all text-xs text-muted-foreground">{p.barcode || "Tanpa barcode"} · {p.category}</p></div>
               <div className="shrink-0 text-right"><p className={p.stock < 10 ? "font-bold text-destructive" : "font-semibold"}>Stok {p.stock}</p><p className="text-xs text-muted-foreground">Modal {rp(p.cost)}</p></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <label className="min-w-0 text-sm">Jumlah tambah<Input aria-label={`Jumlah restock ${p.name}`} className="mt-1 h-11 w-full" type="number" min="1" inputMode="numeric" placeholder="0" value={vals[p.id]?.qty ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { qty: e.target.value } })} /></label>
-              
             </div>
             <Button className="h-11 w-full" onClick={() => save(p.id)}>Simpan restock</Button>
           </section>
