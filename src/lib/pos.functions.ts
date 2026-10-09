@@ -200,7 +200,12 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
 
 async function assertSuperAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "super_admin" });
-  if (error || !data) throw new Error("Fitur ini hanya untuk Super Admin");
+  if (!error && data) return;
+  // Bootstrap: while no Super Admin has been assigned, an existing admin can configure the panel.
+  const db = await admin();
+  const { data: owners, error: ownersError } = await db.from("user_roles").select("user_id").eq("role", "super_admin").limit(1);
+  const { data: adminRole } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
+  if (ownersError || owners?.length || !adminRole.data) throw new Error("Fitur ini hanya untuk Super Admin");
 }
 
 async function assertCashierOrAdmin(ctx: { supabase: any; userId: string }) {
@@ -369,5 +374,8 @@ export const getAdminPermissions = createServerFn({ method: "POST" })
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" }),
     ]);
-    return { isAdmin: adminRole.data === true || superRole.data === true, isSuperAdmin: superRole.data === true };
+    const db = await admin();
+    const { data: owners, error } = await db.from("user_roles").select("user_id").eq("role", "super_admin").limit(1);
+    const bootstrapSuperAdmin = !error && !owners?.length && adminRole.data === true;
+    return { isAdmin: adminRole.data === true || superRole.data === true, isSuperAdmin: superRole.data === true || bootstrapSuperAdmin };
   });
