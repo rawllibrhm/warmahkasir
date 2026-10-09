@@ -312,7 +312,8 @@ function TableQr() {
     } catch (e) { toast.error((e as Error).message); }
   }
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  // QR pelanggan harus selalu memakai URL aplikasi publik, bukan URL preview/editor Lovable.
+  const origin = "https://warmahkasir.lovable.app";
   return (
     <div className="space-y-4">
       <form onSubmit={createTable} className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-end sm:p-4">
