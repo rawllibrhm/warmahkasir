@@ -193,6 +193,18 @@ export type Database = {
         Update: { active?: boolean; created_at?: string; table_no?: string }
         Relationships: []
       }
+      pos_messages: {
+        Row: { id: string; message: string; created_at: string; created_by: string | null; active: boolean }
+        Insert: { id?: string; message: string; created_at?: string; created_by?: string | null; active?: boolean }
+        Update: { id?: string; message?: string; created_at?: string; created_by?: string | null; active?: boolean }
+        Relationships: []
+      }
+      customer_feedback: {
+        Row: { id: string; table_no: string; customer_name: string | null; kind: string; message: string; created_at: string; status: string }
+        Insert: { id?: string; table_no: string; customer_name?: string | null; kind: string; message: string; created_at?: string; status?: string }
+        Update: { id?: string; table_no?: string; customer_name?: string | null; kind?: string; message?: string; created_at?: string; status?: string }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
