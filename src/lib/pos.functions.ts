@@ -190,10 +190,10 @@ export const restockProduct = createServerFn({ method: "POST" })
   });
 
 // ---------- Admin ----------
-const isWarmahOwner = (ctx: { claims?: Record<string, unknown> }) =>
+const isWarmahOwner = (ctx: { claims?: { email?: unknown } }) =>
   String(ctx.claims?.email ?? "").toLowerCase() === "warmah@kediri.com";
 
-async function assertAdmin(ctx: { supabase: any; userId: string; claims?: Record<string, unknown> }) {
+async function assertAdmin(ctx: { supabase: any; userId: string; claims?: { email?: unknown } }) {
   if (isWarmahOwner(ctx)) return;
   const [adminRole, superAdminRole] = await Promise.all([
     ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" }),
@@ -202,7 +202,7 @@ async function assertAdmin(ctx: { supabase: any; userId: string; claims?: Record
   if (!adminRole.data && !superAdminRole.data) throw new Error("Khusus admin");
 }
 
-async function assertSuperAdmin(ctx: { supabase: any; userId: string; claims?: Record<string, unknown> }) {
+async function assertSuperAdmin(ctx: { supabase: any; userId: string; claims?: { email?: unknown } }) {
   if (isWarmahOwner(ctx)) return;
   const { data, error } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "super_admin" });
   if (!error && data) return;
