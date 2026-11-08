@@ -189,6 +189,19 @@ export const restockProduct = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adjustStock = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({ product_id: z.string().uuid(), new_stock: z.number().int().min(0).max(100000), note: z.string().max(120).optional(), by: z.string().max(20).default("kasir") }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const db = await admin();
+    const { data: p } = await db.from("products").select("stock").eq("id", data.product_id).single();
+    if (!p) throw new Error("Produk tidak ditemukan");
+    await db.from("products").update({ stock: data.new_stock }).eq("id", data.product_id);
+    await db.from("stock_adjustments").insert({ product_id: data.product_id, old_stock: p.stock, new_stock: data.new_stock, note: data.note ?? null, created_by: data.by });
+    return { ok: true, old: p.stock };
+  });
+
 // ---------- Admin ----------
 const isWarmahOwner = (ctx: { claims?: { email?: unknown } }) =>
   String(ctx.claims?.email ?? "").toLowerCase() === "warmah@kediri.com";
