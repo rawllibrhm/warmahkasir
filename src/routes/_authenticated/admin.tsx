@@ -187,6 +187,35 @@ function Products() {
   );
 }
 
+function OpnameHistory() {
+  const fn = useServerFn(listStockAdjustments);
+  const { data: rows = [] } = useQuery({ queryKey: ["opname"], queryFn: () => fn() });
+  return (
+    <div className="space-y-4">
+      <Opname />
+      <h2 className="font-display text-lg font-bold">Riwayat Opname</h2>
+      <div className="overflow-x-auto rounded-xl border bg-card">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary text-left"><tr><th className="p-3">Waktu</th><th>Produk</th><th>Sebelum</th><th>Sesudah</th><th>Selisih</th><th>Oleh</th></tr></thead>
+          <tbody>
+            {!rows.length && <tr><td className="p-3 text-muted-foreground" colSpan={6}>Belum ada opname.</td></tr>}
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t">
+                <td className="p-3">{new Date(r.created_at).toLocaleString("id-ID")}</td>
+                <td>{r.products?.name ?? "-"}</td>
+                <td>{r.old_stock}</td>
+                <td>{r.new_stock}</td>
+                <td className="font-bold">{r.new_stock - r.old_stock > 0 ? "+" : ""}{r.new_stock - r.old_stock}</td>
+                <td className="capitalize">{r.created_by}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function TableQr() {
   const [n, setN] = useState(10);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
