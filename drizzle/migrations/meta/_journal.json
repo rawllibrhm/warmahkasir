@@ -12,8 +12,36 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1794141208007,
-      "tag": "0001_create_stock_adjustments",
+      "when": 1791590400000,
+      "tag": "0001_pos_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791676800000,
+      "tag": "0002_product_permanent_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791763200000,
+      "tag": "0003_repair_pos_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791849600000,
+      "tag": "0004_cashier_messages_feedback_and_pos_repair",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791936000000,
+      "tag": "0005_cashier_history_whatsapp_replies",
       "breakpoints": true
     }
   ]

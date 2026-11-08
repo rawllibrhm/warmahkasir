@@ -2,10 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Minus, Plus, ShoppingBag, Wallet, QrCode } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Wallet, QrCode, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { createTableOrder } from "@/lib/pos.functions";
+import { createTableOrder, getPosSettings } from "@/lib/pos.functions";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ function MenuPage() {
   const { no } = Route.useParams();
   const navigate = useNavigate();
   const create = useServerFn(createTableOrder);
+  const fetchSettings = useServerFn(getPosSettings);
+  const { data: posSettings } = useQuery({ queryKey: ["pos-settings"], queryFn: () => fetchSettings(), staleTime: 30000 });
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["menu"],
     queryFn: async () => (await supabase.from("products").select("id,name,category,price,stock").order("category").order("name")).data ?? [],
@@ -44,6 +46,7 @@ function MenuPage() {
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const add = (id: string, d: number) => setCart((c) => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + d) }));
+
 
   async function checkout() {
     setBusy(true);
@@ -99,6 +102,10 @@ function MenuPage() {
           </Button>
         </div>
       )}
+
+      <a href={`https://wa.me/${(posSettings?.whatsappNumber || "6285142274765").replace(/\\D/g, "")}?text=${encodeURIComponent(`Halo Warmah Kediri, saya pelanggan meja ${no}`)}`} target="_blank" rel="noreferrer" aria-label="Hubungi Warmah Kediri melalui WhatsApp" className="fixed bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105">
+        <MessageCircle className="h-6 w-6" />
+      </a>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="mx-auto max-h-[90vh] max-w-lg overflow-y-auto rounded-t-2xl">
