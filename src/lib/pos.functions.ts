@@ -187,6 +187,33 @@ export const restockProduct = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adjustStock = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({ product_id: z.string().uuid(), new_stock: z.number().int().min(0).max(100000), note: z.string().max(200).optional(), by: z.enum(["kasir", "admin"]) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const db = await admin();
+    const { data: p } = await db.from("products").select("stock").eq("id", data.product_id).single();
+    if (!p) throw new Error("Produk tidak ditemukan");
+    if (p.stock === data.new_stock) return { ok: true };
+    await db.from("products").update({ stock: data.new_stock }).eq("id", data.product_id);
+    await db.from("stock_adjustments").insert({ product_id: data.product_id, old_stock: p.stock, new_stock: data.new_stock, note: data.note || null, created_by: data.by });
+    return { ok: true };
+  });
+
+export const listStockAdjustments = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const db = await admin();
+    const { data } = await db
+      .from("stock_adjustments")
+      .select("id,old_stock,new_stock,note,created_by,created_at,products(name)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    return data ?? [];
+  });
+
 // ---------- Admin ----------
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });

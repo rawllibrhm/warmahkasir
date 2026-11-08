@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2 } from "lucide-react";
 import { toast } from "sonner";
-import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct } from "@/lib/pos.functions";
+import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, adjustStock } from "@/lib/pos.functions";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,10 +63,12 @@ function KasirPage() {
           <TabsTrigger value="live">Order Meja {live.length > 0 && <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">{live.length}</span>}</TabsTrigger>
           <TabsTrigger value="pos">POS</TabsTrigger>
           <TabsTrigger value="stok">Restock</TabsTrigger>
+          <TabsTrigger value="opname">Opname</TabsTrigger>
         </TabsList>
         <TabsContent value="live"><LiveOrders live={live} /></TabsContent>
         <TabsContent value="pos"><Pos /></TabsContent>
         <TabsContent value="stok"><Restock /></TabsContent>
+        <TabsContent value="opname"><Opname /></TabsContent>
       </Tabs>
 
       <Dialog open={alert.length > 0} onOpenChange={(o) => !o && dismiss()}>
