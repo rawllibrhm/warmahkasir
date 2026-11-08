@@ -342,9 +342,12 @@ function Restock() {
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
   const restock = useServerFn(restockProduct);
+  const opname = useServerFn(adjustStock);
+  const [mode, setMode] = useState<"restock" | "opname">("restock");
   const [search, setSearch] = useState("");
-  const [vals, setVals] = useState<Record<string, { qty: string }>>({});
+  const [vals, setVals] = useState<Record<string, { qty: string; note: string }>>({});
   const filteredProducts = products.filter((p) => [p.name, p.category, p.barcode ?? ""].some((v) => v.toLowerCase().includes(search.trim().toLowerCase())));
+  const setV = (id: string, patch: Partial<{ qty: string; note: string }>) => setVals((x) => ({ ...x, [id]: { qty: "", note: "", ...x[id], ...patch } }));
 
   async function save(id: string) {
     const v = vals[id];
@@ -353,24 +356,57 @@ function Restock() {
     try {
       await restock({ data: { product_id: id, qty } });
       toast.success("Stok ditambah");
-      setVals({ ...vals, [id]: { qty: "" } });
+      setV(id, { qty: "" });
+      qc.invalidateQueries({ queryKey: ["products-all"] });
+    } catch (e) { toast.error((e as Error).message); }
+  }
+
+  async function saveOpname(id: string) {
+    const v = vals[id];
+    const ns = v?.qty === "" || v?.qty === undefined ? NaN : Number(v.qty);
+    if (Number.isNaN(ns) || ns < 0) { toast.error("Isi stok fisik"); return; }
+    try {
+      const r = await opname({ data: { product_id: id, new_stock: ns, note: v?.note || undefined, by: "kasir" } });
+      toast.success(`Opname tersimpan (${r.old} → ${ns})`);
+      setV(id, { qty: "", note: "" });
       qc.invalidateQueries({ queryKey: ["products-all"] });
     } catch (e) { toast.error((e as Error).message); }
   }
 
   return (
     <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-xl border bg-card p-3"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Cari barang restock berdasarkan nama, kategori, atau barcode…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant={mode === "restock" ? "default" : "outline"} onClick={() => setMode("restock")}>Restock masuk</Button>
+        <Button size="sm" variant={mode === "opname" ? "default" : "outline"} onClick={() => setMode("opname")}>Opname stok</Button>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl border bg-card p-3"><Search className="h-4 w-4 text-muted-foreground" /><Input placeholder="Cari barang berdasarkan nama, kategori, atau barcode…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
       <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
         <table className="w-full text-sm">
-          <thead className="bg-secondary text-left"><tr><th className="p-3">Produk</th><th>Barcode</th><th>Stok</th><th>Modal</th><th>Tambah</th><th /></tr></thead>
+          <thead className="bg-secondary text-left">
+            {mode === "restock" ? (
+              <tr><th className="p-3">Produk</th><th>Barcode</th><th>Stok</th><th>Modal</th><th>Tambah</th><th /></tr>
+            ) : (
+              <tr><th className="p-3">Produk</th><th>Barcode</th><th>Stok sistem</th><th>Stok fisik</th><th>Catatan</th><th /></tr>
+            )}
+          </thead>
           <tbody>
             {filteredProducts.map((p) => (
               <tr key={p.id} className="border-t">
                 <td className="p-3 font-medium">{p.name}</td><td className="text-muted-foreground">{p.barcode || "—"}</td>
-                <td className={p.stock < 10 ? "font-bold text-destructive" : ""}>{p.stock}</td><td>{rp(p.cost)}</td>
-                <td><Input aria-label={`Jumlah restock ${p.name}`} className="h-9 w-20" type="number" min="1" value={vals[p.id]?.qty ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { qty: e.target.value } })} /></td>
-                <td className="pr-3"><Button size="sm" onClick={() => save(p.id)}>Simpan</Button></td>
+                <td className={p.stock < 10 ? "font-bold text-destructive" : ""}>{p.stock}</td>
+                {mode === "restock" ? (
+                  <>
+                    <td>{rp(p.cost)}</td>
+                    <td><Input aria-label={`Jumlah restock ${p.name}`} className="h-9 w-20" type="number" min="1" value={vals[p.id]?.qty ?? ""} onChange={(e) => setV(p.id, { qty: e.target.value })} /></td>
+                    <td className="pr-3"><Button size="sm" onClick={() => save(p.id)}>Simpan</Button></td>
+                  </>
+                ) : (
+                  <>
+                    <td><Input aria-label={`Stok fisik ${p.name}`} className="h-9 w-24" type="number" min="0" placeholder="hitung fisik" value={vals[p.id]?.qty ?? ""} onChange={(e) => setV(p.id, { qty: e.target.value })} /></td>
+                    <td><Input className="h-9 w-44" placeholder="opsional" value={vals[p.id]?.note ?? ""} onChange={(e) => setV(p.id, { note: e.target.value })} /></td>
+                    <td className="pr-3"><Button size="sm" onClick={() => saveOpname(p.id)}>Simpan</Button></td>
+                  </>
+                )}
               </tr>
             ))}
             {!filteredProducts.length && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Barang tidak ditemukan.</td></tr>}
@@ -384,14 +420,23 @@ function Restock() {
               <div className="min-w-0"><h3 className="break-words font-semibold">{p.name}</h3><p className="break-all text-xs text-muted-foreground">{p.barcode || "Tanpa barcode"} · {p.category}</p></div>
               <div className="shrink-0 text-right"><p className={p.stock < 10 ? "font-bold text-destructive" : "font-semibold"}>Stok {p.stock}</p><p className="text-xs text-muted-foreground">Modal {rp(p.cost)}</p></div>
             </div>
-            <div className="grid grid-cols-1 gap-3">
-              <label className="min-w-0 text-sm">Jumlah tambah<Input aria-label={`Jumlah restock ${p.name}`} className="mt-1 h-11 w-full" type="number" min="1" inputMode="numeric" placeholder="0" value={vals[p.id]?.qty ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: { qty: e.target.value } })} /></label>
-            </div>
-            <Button className="h-11 w-full" onClick={() => save(p.id)}>Simpan restock</Button>
+            {mode === "restock" ? (
+              <>
+                <label className="min-w-0 text-sm">Jumlah tambah<Input aria-label={`Jumlah restock ${p.name}`} className="mt-1 h-11 w-full" type="number" min="1" inputMode="numeric" placeholder="0" value={vals[p.id]?.qty ?? ""} onChange={(e) => setV(p.id, { qty: e.target.value })} /></label>
+                <Button className="h-11 w-full" onClick={() => save(p.id)}>Simpan restock</Button>
+              </>
+            ) : (
+              <>
+                <label className="min-w-0 text-sm">Stok fisik (hasil hitung)<Input aria-label={`Stok fisik ${p.name}`} className="mt-1 h-11 w-full" type="number" min="0" inputMode="numeric" placeholder="0" value={vals[p.id]?.qty ?? ""} onChange={(e) => setV(p.id, { qty: e.target.value })} /></label>
+                <label className="min-w-0 text-sm">Catatan (opsional)<Input className="mt-1 h-11 w-full" value={vals[p.id]?.note ?? ""} onChange={(e) => setV(p.id, { note: e.target.value })} /></label>
+                <Button className="h-11 w-full" onClick={() => saveOpname(p.id)}>Simpan opname</Button>
+              </>
+            )}
           </section>
         ))}
         {!filteredProducts.length && <p className="rounded-xl border p-6 text-center text-sm text-muted-foreground">Barang tidak ditemukan.</p>}
       </div>
+      {mode === "opname" && <p className="text-xs text-muted-foreground">Opname mengganti stok sistem sesuai hitungan fisik dan tercatat di riwayat penyesuaian stok.</p>}
     </div>
   );
 }
