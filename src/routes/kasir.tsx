@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, ChefHat, Minus, Plus, ScanBarcode, Trash2, ZoomIn, Volume2, Search, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, listCashierMessages, getCashierHistorySecure, getPosSettings, acknowledgeCashierMessage } from "@/lib/pos.functions";
+import { listLiveOrders, listProductsAll, confirmOrder, rejectOrder, getProofUrl, posCheckout, restockProduct, adjustStock, listCashierMessages, getCashierHistorySecure, getPosSettings, acknowledgeCashierMessage } from "@/lib/pos.functions";
 import { rp, STATUS_LABEL, startAlarm } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,11 +73,10 @@ function KasirPage() {
       }
       toast.info(fresh.length === 1 ? "Ada pesan baru dari admin" : `Ada ${fresh.length} pesan admin yang belum dibaca`, { duration: 5000 });
       if ("Notification" in window && Notification.permission === "granted") {
-        const latest = fresh[0];
+        const latest = fresh[0]!;
         const notification = new Notification("Pesan dari Admin — Warmah Kasir", {
           body: latest.message,
           tag: `admin-message-${latest.id}`,
-          renotify: true,
         });
         notification.onclick = () => { window.focus(); notification.close(); };
       }
