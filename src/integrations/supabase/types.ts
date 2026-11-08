@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      customer_feedback: {
+        Row: {
+          created_at: string
+          customer_name: string | null
+          id: string
+          kind: string
+          message: string
+          status: string
+          table_no: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          kind: string
+          message: string
+          status?: string
+          table_no: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          kind?: string
+          message?: string
+          status?: string
+          table_no?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           cost: number
@@ -110,6 +158,80 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_message_replies: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          replied_by: string | null
+          reply: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          replied_by?: string | null
+          reply?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          replied_by?: string | null
+          reply?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_message_replies_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "pos_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_messages: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          message: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          message: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          message?: string
+        }
+        Relationships: []
+      }
+      pos_tables: {
+        Row: {
+          active: boolean
+          created_at: string
+          table_no: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          table_no: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          table_no?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           active: boolean
@@ -181,6 +303,44 @@ export type Database = {
           },
         ]
       }
+      stock_adjustments: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          new_stock: number
+          note: string | null
+          old_stock: number
+          product_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          new_stock: number
+          note?: string | null
+          old_stock: number
+          product_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          new_stock?: number
+          note?: string | null
+          old_stock?: number
+          product_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustments_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -211,9 +371,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_pos_table: { Args: { _table_no: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin"
+      app_role: "admin" | "super_admin" | "kasir"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -341,7 +502,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin"],
+      app_role: ["admin", "super_admin", "kasir"],
     },
   },
 } as const

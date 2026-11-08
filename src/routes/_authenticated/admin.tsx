@@ -6,7 +6,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getReport, resetRevenue, listProductsAll, upsertProduct } from "@/lib/pos.functions";
+import { getReport, resetRevenue, listProductsAll, upsertProduct, listStockAdjustments } from "@/lib/pos.functions";
+import { Opname } from "@/routes/kasir";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,9 +47,10 @@ function AdminPage() {
         <Button variant="ghost" size="sm" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
       </header>
       <Tabs defaultValue="laba" className="p-4">
-        <TabsList><TabsTrigger value="laba">Laba/Rugi</TabsTrigger><TabsTrigger value="produk">Produk</TabsTrigger><TabsTrigger value="qr">QR Meja</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="laba">Laba/Rugi</TabsTrigger><TabsTrigger value="produk">Produk</TabsTrigger><TabsTrigger value="opname">Opname</TabsTrigger><TabsTrigger value="qr">QR Meja</TabsTrigger></TabsList>
         <TabsContent value="laba"><Report /></TabsContent>
         <TabsContent value="produk"><Products /></TabsContent>
+        <TabsContent value="opname"><OpnameHistory /></TabsContent>
         <TabsContent value="qr"><TableQr /></TabsContent>
       </Tabs>
     </div>
@@ -179,6 +181,35 @@ function Products() {
               <td className="pr-3 text-right"><Button size="sm" variant="outline" onClick={() => toggle(p)}>{p.active ? "Sembunyikan" : "Tampilkan"}</Button></td>
             </tr>
           ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function OpnameHistory() {
+  const fn = useServerFn(listStockAdjustments);
+  const { data: rows = [] } = useQuery({ queryKey: ["opname"], queryFn: () => fn() });
+  return (
+    <div className="space-y-4">
+      <Opname />
+      <h2 className="font-display text-lg font-bold">Riwayat Opname</h2>
+      <div className="overflow-x-auto rounded-xl border bg-card">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary text-left"><tr><th className="p-3">Waktu</th><th>Produk</th><th>Sebelum</th><th>Sesudah</th><th>Selisih</th><th>Oleh</th></tr></thead>
+          <tbody>
+            {!rows.length && <tr><td className="p-3 text-muted-foreground" colSpan={6}>Belum ada opname.</td></tr>}
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t">
+                <td className="p-3">{new Date(r.created_at).toLocaleString("id-ID")}</td>
+                <td>{r.products?.name ?? "-"}</td>
+                <td>{r.old_stock}</td>
+                <td>{r.new_stock}</td>
+                <td className="font-bold">{r.new_stock - r.old_stock > 0 ? "+" : ""}{r.new_stock - r.old_stock}</td>
+                <td className="capitalize">{r.created_by}</td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       </div>
     </div>
