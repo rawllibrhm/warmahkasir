@@ -6,7 +6,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { LogOut, Trash2, TrendingUp, Wallet, Receipt, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getReport, resetRevenue, listProductsAll, upsertProduct } from "@/lib/pos.functions";
+import { getReport, resetRevenue, listProductsAll, upsertProduct, listStockAdjustments } from "@/lib/pos.functions";
+import { Opname } from "@/routes/kasir";
 import { rp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,9 +47,10 @@ function AdminPage() {
         <Button variant="ghost" size="sm" onClick={logout}><LogOut className="mr-1 h-4 w-4" />Keluar</Button>
       </header>
       <Tabs defaultValue="laba" className="p-4">
-        <TabsList><TabsTrigger value="laba">Laba/Rugi</TabsTrigger><TabsTrigger value="produk">Produk</TabsTrigger><TabsTrigger value="qr">QR Meja</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="laba">Laba/Rugi</TabsTrigger><TabsTrigger value="produk">Produk</TabsTrigger><TabsTrigger value="opname">Opname</TabsTrigger><TabsTrigger value="qr">QR Meja</TabsTrigger></TabsList>
         <TabsContent value="laba"><Report /></TabsContent>
         <TabsContent value="produk"><Products /></TabsContent>
+        <TabsContent value="opname"><OpnameHistory /></TabsContent>
         <TabsContent value="qr"><TableQr /></TabsContent>
       </Tabs>
     </div>

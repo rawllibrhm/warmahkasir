@@ -236,6 +236,50 @@ function Pos() {
   );
 }
 
+export function Opname() {
+  const qc = useQueryClient();
+  const { data: products = [] } = useProducts();
+  const adjust = useServerFn(adjustStock);
+  const [vals, setVals] = useState<Record<string, string>>({});
+
+  async function save(id: string) {
+    const n = Number(vals[id]);
+    if (vals[id] === undefined || isNaN(n) || n < 0) { toast.error("Isi jumlah fisik"); return; }
+    try {
+      await adjust({ data: { product_id: id, new_stock: n, by: "kasir" } });
+      toast.success("Stok disesuaikan");
+      setVals({ ...vals, [id]: "" });
+      qc.invalidateQueries({ queryKey: ["products-all"] });
+    } catch (e) { toast.error((e as Error).message); }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">Hitung stok fisik di toko, lalu masukkan angkanya. Sistem otomatis mencatat selisihnya.</p>
+      <div className="overflow-x-auto rounded-xl border bg-card">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary text-left"><tr><th className="p-3">Produk</th><th>Stok sistem</th><th>Hitung fisik</th><th>Selisih</th><th /></tr></thead>
+          <tbody>
+            {products.map((p) => {
+              const n = Number(vals[p.id]);
+              const diff = vals[p.id] !== undefined && vals[p.id] !== "" && !isNaN(n) ? n - p.stock : null;
+              return (
+                <tr key={p.id} className="border-t">
+                  <td className="p-3 font-medium">{p.name}</td>
+                  <td>{p.stock}</td>
+                  <td><Input className="h-8 w-24" type="number" min={0} value={vals[p.id] ?? ""} onChange={(e) => setVals({ ...vals, [p.id]: e.target.value })} /></td>
+                  <td className={diff === null ? "" : diff === 0 ? "text-muted-foreground" : "font-bold text-destructive"}>{diff === null ? "-" : diff > 0 ? `+${diff}` : diff}</td>
+                  <td className="pr-3 text-right"><Button size="sm" disabled={diff === null || diff === 0} onClick={() => save(p.id)}>Sesuaikan</Button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Restock() {
   const qc = useQueryClient();
   const { data: products = [] } = useProducts();
