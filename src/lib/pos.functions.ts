@@ -42,8 +42,6 @@ export const createTableOrder = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const db = await admin();
-    const { data: activeTable, error: tableError } = await db.rpc("is_active_pos_table", { _table_no: data.table_no });
-    if (tableError || !activeTable) throw new Error("Meja tidak aktif atau sudah dihapus");
     const { rows, total, cost_total } = await buildItems(data.items);
     const { data: order, error } = await db
       .from("orders")
@@ -189,38 +187,37 @@ export const restockProduct = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adjustStock = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({ product_id: z.string().uuid(), new_stock: z.number().int().min(0).max(100000), note: z.string().max(200).optional(), by: z.enum(["kasir", "admin"]) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const db = await admin();
+    const { data: p } = await db.from("products").select("stock").eq("id", data.product_id).single();
+    if (!p) throw new Error("Produk tidak ditemukan");
+    if (p.stock === data.new_stock) return { ok: true };
+    await db.from("products").update({ stock: data.new_stock }).eq("id", data.product_id);
+    await db.from("stock_adjustments").insert({ product_id: data.product_id, old_stock: p.stock, new_stock: data.new_stock, note: data.note || null, created_by: data.by });
+    return { ok: true };
+  });
+
+export const listStockAdjustments = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const db = await admin();
+    const { data } = await db
+      .from("stock_adjustments")
+      .select("id,old_stock,new_stock,note,created_by,created_at,products(name)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    return data ?? [];
+  });
+
 // ---------- Admin ----------
-const isWarmahOwner = (ctx: { claims?: { email?: unknown } }) =>
-  String(ctx.claims?.email ?? "").toLowerCase() === "warmah@kediri.com";
-
-async function assertAdmin(ctx: { supabase: any; userId: string; claims?: { email?: unknown } }) {
-  if (isWarmahOwner(ctx)) return;
-  const [adminRole, superAdminRole] = await Promise.all([
-    ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" }),
-    ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "super_admin" }),
-  ]);
-  if (!adminRole.data && !superAdminRole.data) throw new Error("Khusus admin");
-}
-
-async function assertSuperAdmin(ctx: { supabase: any; userId: string; claims?: { email?: unknown } }) {
-  if (isWarmahOwner(ctx)) return;
-  const { data, error } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "super_admin" });
-  if (!error && data) return;
-  // Bootstrap: while no Super Admin has been assigned, an existing admin can configure the panel.
-  const db = await admin();
-  const { data: owners, error: ownersError } = await db.from("user_roles").select("user_id").eq("role", "super_admin").limit(1);
-  const { data: adminRole } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
-  if (ownersError || owners?.length || !adminRole.data) throw new Error("Fitur ini hanya untuk Super Admin");
-}
-
-async function assertCashierOrAdmin(ctx: { supabase: any; userId: string; claims?: { email?: unknown } }) {
-  if (isWarmahOwner(ctx)) return;
-  const roles = await Promise.all(["kasir", "admin", "super_admin"].map((_role) =>
-    ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role })
-  ));
-  if (!roles.some((r: { data: boolean | null }) => r.data === true)) {
-    throw new Error("Akun tidak memiliki akses kasir");
-  }
+async function assertAdmin(ctx: { supabase: any; userId: string }) {
+  const { data } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
+  if (!data) throw new Error("Khusus admin");
 }
 
 export const getReport = createServerFn({ method: "POST" })
@@ -275,254 +272,4 @@ export const upsertProduct = createServerFn({ method: "POST" })
     const { error } = id ? await db.from("products").update(row).eq("id", id) : await db.from("products").insert(row);
     if (error) throw new Error(error.message);
     return { ok: true };
-  });
-
-
-// ---------- Pengaturan Super Admin & meja ----------
-export const getPosSettings = createServerFn({ method: "POST" }).handler(async () => {
-  const db = await admin();
-  const { data, error } = await db.from("app_settings").select("key,value").in("key", ["cashier_can_add_products", "cashier_whatsapp_number"]);
-  if (error) throw new Error(`Pengaturan POS gagal dimuat: ${error.message}. Jalankan migrasi 0004_cashier_messages_feedback_and_pos_repair.sql dan 0005_cashier_history_whatsapp_replies.sql di Supabase.`);
-  const settings = new Map((data ?? []).map((row) => [row.key, row.value]));
-  return {
-    cashierCanAddProducts: settings.get("cashier_can_add_products") === true,
-    whatsappNumber: typeof settings.get("cashier_whatsapp_number") === "string" ? settings.get("cashier_whatsapp_number") as string : "6285142274765",
-  };
-});
-
-export const setCashierAddProductEnabled = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ enabled: z.boolean() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertSuperAdmin(context);
-    const db = await admin();
-    const { error } = await db.from("app_settings").upsert({
-      key: "cashier_can_add_products",
-      value: data.enabled,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) throw new Error(error.message);
-    return { cashierCanAddProducts: data.enabled };
-  });
-
-export const createCashierProduct = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    name: z.string().trim().min(1).max(80),
-    barcode: z.string().trim().max(40).optional(),
-    category: z.string().trim().min(1).max(30),
-    price: z.number().int().min(0),
-    cost: z.number().int().min(0),
-    stock: z.number().int().min(0),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertCashierOrAdmin(context);
-    const db = await admin();
-    const { data: setting, error: settingError } = await db.from("app_settings").select("value").eq("key", "cashier_can_add_products").maybeSingle();
-    if (settingError || setting?.value !== true) throw new Error("Penambahan barang dari kasir belum diaktifkan Super Admin");
-    const { error } = await db.from("products").insert({
-      name: data.name,
-      barcode: data.barcode || null,
-      category: data.category,
-      price: data.price,
-      cost: data.cost,
-      stock: data.stock,
-      active: true,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const listPosTables = createServerFn({ method: "POST" }).handler(async () => {
-  const db = await admin();
-  const { data, error } = await db.from("pos_tables").select("table_no,active,created_at").eq("active", true).order("table_no");
-  if (error) throw new Error(error.message);
-  return data ?? [];
-});
-
-export const addPosTable = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ table_no: z.string().trim().min(1).max(10).regex(/^[\p{L}\p{N} _./#-]+$/u, "Nomor meja hanya boleh berisi huruf, angka, spasi, titik, garis miring, #, atau tanda hubung") }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context);
-    const db = await admin();
-    const { error } = await db.from("pos_tables").upsert({ table_no: data.table_no, active: true });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const deletePosTable = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ table_no: z.string().min(1).max(10) }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context);
-    const db = await admin();
-    const { data: pending, error: pendingError } = await db.from("orders").select("id").eq("table_no", data.table_no).in("status", ["menunggu_bukti", "menunggu_pembayaran", "menunggu_validasi"]).limit(1);
-    if (pendingError) throw new Error(pendingError.message);
-    if (pending?.length) throw new Error("Meja masih memiliki pesanan aktif; selesaikan atau tolak pesanan terlebih dahulu");
-    const { error } = await db.from("pos_tables").update({ active: false }).eq("table_no", data.table_no);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const deleteProduct = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context);
-    const db = await admin();
-    // Permanently remove the catalog entry. order_items keeps a snapshot of
-    // name, price, cost and quantity; its product_id FK uses ON DELETE SET NULL.
-    // Restock history is also preserved by the migration's ON DELETE SET NULL.
-    const { data: deleted, error } = await db.from("products").delete().eq("id", data.id).select("id").maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!deleted) throw new Error("Menu tidak ditemukan atau sudah dihapus");
-    return { ok: true };
-  });
-
-export const getAdminPermissions = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const [adminRole, superRole] = await Promise.all([
-      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
-      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" }),
-    ]);
-    const db = await admin();
-    const { data: owners, error } = await db.from("user_roles").select("user_id").eq("role", "super_admin").limit(1);
-    const bootstrapSuperAdmin = !error && !owners?.length && adminRole.data === true;
-    const namedSuperAdmin = isWarmahOwner(context);
-    return {
-      isAdmin: adminRole.data === true || superRole.data === true || namedSuperAdmin,
-      isSuperAdmin: superRole.data === true || bootstrapSuperAdmin || namedSuperAdmin,
-    };
-  });
-
-
-// ---------- Pesan admin ke kasir & kritik/saran pelanggan ----------
-export const listCashierMessages = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertCashierOrAdmin(context);
-    const db = await admin();
-    const { data, error } = await db.from("pos_messages").select("id,message,created_at,created_by").eq("active", true).order("created_at", { ascending: false }).limit(30);
-    if (error) throw new Error(error.message);
-    const messages = data ?? [];
-    if (!messages.length) return [];
-    // Hanya pesan yang belum dibalas "Oke" yang dikirim ke layar kasir.
-    // Dengan begitu, pesan lama tetap muncul setelah HP offline, tetapi pesan
-    // yang sudah diakui tidak muncul lagi setiap kali halaman dibuka.
-    const { data: replies, error: repliesError } = await db.from("pos_message_replies")
-      .select("message_id")
-      .in("message_id", messages.map((message) => message.id));
-    if (repliesError) throw new Error(repliesError.message);
-    const acknowledged = new Set((replies ?? []).map((reply) => reply.message_id));
-    return messages.filter((message) => !acknowledged.has(message.id));
-  });
-
-export const sendCashierMessage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ message: z.string().trim().min(1).max(500) }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertSuperAdmin(context);
-    const db = await admin();
-    const { error } = await db.from("pos_messages").insert({ message: data.message, created_by: String(context.claims?.email ?? "Admin") });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const submitCustomerFeedback = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({
-    table_no: z.string().trim().min(1).max(10),
-    customer_name: z.string().trim().max(60).optional(),
-    kind: z.enum(["kritik", "saran"]),
-    message: z.string().trim().min(3).max(1000),
-  }).parse(d))
-  .handler(async ({ data }) => {
-    const db = await admin();
-    const { data: activeTable, error: tableError } = await db.rpc("is_active_pos_table", { _table_no: data.table_no });
-    if (tableError || !activeTable) throw new Error("Meja tidak aktif. Silakan hubungi kasir.");
-    const { error } = await db.from("customer_feedback").insert({
-      table_no: data.table_no,
-      customer_name: data.customer_name || null,
-      kind: data.kind,
-      message: data.message,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-
-export const getCashierHistorySecure = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({
-    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  }).refine((d) => d.from <= d.to, { message: "Rentang tanggal tidak valid" }).parse(d))
-  .handler(async ({ data }) => {
-    // Batasi rekap pada transaksi terkonfirmasi di periode yang dipilih.
-    const db = await admin();
-    const start = new Date(data.from + "T00:00:00+07:00").toISOString();
-    const endDate = new Date(data.to + "T00:00:00+07:00");
-    endDate.setUTCDate(endDate.getUTCDate() + 1);
-    const end = endDate.toISOString();
-    const { data: orders, error } = await db.from("orders")
-      .select("id,order_no,source,table_no,payment_method,total,created_at,confirmed_at,order_items(name,price,qty)")
-      .eq("status", "dikonfirmasi")
-      .gte("confirmed_at", start)
-      .lt("confirmed_at", end)
-      .order("confirmed_at", { ascending: false })
-      .limit(5000);
-    if (error) throw new Error("Gagal memuat rekap penjualan untuk tanggal yang dipilih.");
-    return orders ?? [];
-  });
-
-export const setCashierWhatsappNumber = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ phone: z.string().trim().max(20).regex(/^[+0-9\\s()-]*$/) }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertSuperAdmin(context);
-    const db = await admin();
-    const { error } = await db.from("app_settings").upsert({
-      key: "cashier_whatsapp_number",
-      value: data.phone.replace(/[^0-9]/g, ""),
-      updated_at: new Date().toISOString(),
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const listCashierMessageReplies = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertSuperAdmin(context);
-    const db = await admin();
-    const { data, error } = await db.from("pos_message_replies")
-      .select("id,message_id,reply,created_at,replied_by")
-      .order("created_at", { ascending: false }).limit(50);
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  });
-
-export const acknowledgeCashierMessage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertCashierOrAdmin(context);
-    const db = await admin();
-    const { error } = await db.from("pos_message_replies").upsert({
-      message_id: data.message_id,
-      reply: "Oke",
-      replied_by: String(context.claims?.email ?? "Kasir"),
-    }, { onConflict: "message_id" });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const listCustomerFeedback = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context);
-    const db = await admin();
-    const { data, error } = await db.from("customer_feedback").select("id,table_no,customer_name,kind,message,created_at,status").order("created_at", { ascending: false }).limit(100);
-    if (error) throw new Error(error.message);
-    return data ?? [];
   });
